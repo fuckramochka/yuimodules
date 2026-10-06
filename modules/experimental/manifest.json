@@ -1,0 +1,10 @@
+{
+  "id": "experimental",
+  "version": "1.0.1",
+  "branch": "stable",
+  "entry": "com.amegram.mods.experimental.ExperimentalModule",
+  "name": "Експерименти",
+  "minApp": 7112,
+  "description": "Твіки швидкості та лімітів.",
+  "changelog": "Видалені переїхали в привида; тут безліміти/буст/жести."
+}

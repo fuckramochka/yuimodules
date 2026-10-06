@@ -1,0 +1,10 @@
+{
+  "id": "player",
+  "version": "1.0.1",
+  "branch": "stable",
+  "entry": "com.amegram.mods.player.PlayerModule",
+  "name": "Музика та плеєр",
+  "minApp": 7112,
+  "description": "Пошук з 6 джерел, візуалізатор, LRC.",
+  "changelog": "Тумблери прив'язані до реальних префів; фон/блур тільки в олівці плеєра."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "ame",
+  "version": "1.0.0",
+  "branch": "stable",
+  "entry": "com.amegram.mods.ame.AmeModule",
+  "name": "Кастомізація",
+  "minApp": 7112,
+  "description": "Ame Studio, XML-картки.",
+  "changelog": ""
+}

@@ -1,0 +1,10 @@
+{
+  "id": "ghost",
+  "version": "1.0.1",
+  "branch": "stable",
+  "entry": "com.amegram.mods.ghost.GhostModule",
+  "name": "Режим привида",
+  "minApp": 7112,
+  "description": "Невидимість: read/stories/online/typing + анти-видалення одним цілим.",
+  "changelog": "Привид+видалені одним модулем; синк префів у ядро; гейт вимкнення."
+}
