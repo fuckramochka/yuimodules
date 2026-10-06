@@ -116,4 +116,4 @@ jobs:
           json.dump(cat, open("modules.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
           print("catalog updated")
           PY
-          git config user.email "fuckramochka@users.noreply.github.com" && git config user.name "fuckramochka" && git add -A && git diff --cached --stat | head -20 && git commit -m "hmod build" -q && git push origin main
+          git config user.email "fuckramochka@users.noreply.github.com" && git config user.name "fuckramochka" && git add .gitignore modules.json hmods modules hot-api && git diff --cached --stat | head -20 && git commit -m "hmod build" -q && git push origin main
