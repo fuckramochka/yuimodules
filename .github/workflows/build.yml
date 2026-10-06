@@ -47,9 +47,9 @@ jobs:
         run: |
           ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
           D8=$(ls -d "$ANDROID_HOME/build-tools/"*/d8 | sort | tail -1)
-          APP_CLASSES=$(find amenew/TMessagesProj/build/intermediates/javac -type d -name classes 2>/dev/null | head -1)
-          if [ -z "$APP_CLASSES" ]; then APP_CLASSES=$(find amenew/TMessagesProj/build -type d -name classes 2>/dev/null | head -1); fi
+          APP_CLASSES=$(find amenew/TMessagesProj/build -type d \( -name classes -o -name kotlin-classes \) 2>/dev/null | tr '\n' ':')
           test -n "$APP_CLASSES" || { echo "no compiled classes dir"; exit 1; }
+          echo "APP_CLASSES=$APP_CLASSES"
           RJAR=$(find amenew/TMessagesProj/build -name "R.jar" 2>/dev/null | head -1)
           MODCP="hot-api:$ANDROID_JAR:$APP_CLASSES"
           if [ -n "$RJAR" ]; then MODCP="$MODCP:$RJAR"; fi
@@ -70,7 +70,8 @@ jobs:
             DEXOUT=out-hmod/dex-$mod
             rm -rf "$DEXOUT" && mkdir -p "$DEXOUT"
             (cd "$OUT" && zip -q -r "../classes-$mod.jar" . -i "*.class") || { echo "zip failed for $mod"; exit 1; }
-            "$D8" --min-api 27 --lib "$ANDROID_JAR" --lib "$APP_CLASSES" --output "$DEXOUT" "out-hmod/classes-$mod.jar" || { echo "d8 failed for $mod"; exit 1; }
+            D8LIB=$(echo "$APP_CLASSES" | tr ':' '\n' | head -1)
+            "$D8" --min-api 27 --lib "$ANDROID_JAR" --lib "$D8LIB" --output "$DEXOUT" "out-hmod/classes-$mod.jar" || { echo "d8 failed for $mod"; exit 1; }
             python3 - "$moddir/manifest.json" "$DEXOUT/classes.dex" "out-hmod/$mod-$ver.hmod" <<'PY'
           import json, sys, zipfile
           manifest_src, dex_src, dest = sys.argv[1], sys.argv[2], sys.argv[3]
