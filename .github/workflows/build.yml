@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 1
       - name: Set up JDK
         uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '21' }
+        with: { distribution: jetbrains, java-version: '21' }
       - name: Set up Python for Chaquopy
         uses: actions/setup-python@v5
         with: { python-version: '3.11' }
