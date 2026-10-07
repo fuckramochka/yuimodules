@@ -6,5 +6,12 @@
   "name": "TikTok MI",
   "minApp": 7112,
   "description": "Відео без вотермарок.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "media",
+  "featured": false,
+  "permissions": [
+    "network",
+    "storage"
+  ]
 }

@@ -6,5 +6,13 @@
   "name": "Музика та плеєр",
   "minApp": 7112,
   "description": "Пошук з 6 джерел, візуалізатор, LRC.",
-  "changelog": "Тумблери прив'язані до реальних префів; фон/блур тільки в олівці плеєра."
+  "changelog": "Тумблери прив'язані до реальних префів; фон/блур тільки в олівці плеєра.",
+  "author": "AmeGram Team",
+  "category": "media",
+  "featured": true,
+  "permissions": [
+    "hook_ui",
+    "network",
+    "storage"
+  ]
 }

@@ -1,0 +1,49 @@
+name: Lint hotmods
+
+on:
+  push:
+    branches: [main]
+    paths: ['hmods/**', 'modules.json', 'modules/**/manifest.json', 'tools/**', '.github/workflows/lint.yml']
+  pull_request:
+    paths: ['hmods/**', 'modules.json', 'modules/**/manifest.json', 'tools/**']
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint .hmod files
+        run: |
+          fail=0
+          for f in hmods/*.hmod; do
+            python3 tools/lint_manifest.py "$f" || fail=1
+          done
+          exit $fail
+      - name: Lint catalog
+        run: python3 tools/lint_manifest.py --catalog modules.json
+      - name: Verify catalog sha256 matches hmods
+        run: |
+          python3 - <<'EOF'
+          import hashlib, json, os
+          cat = json.load(open("modules.json", encoding="utf-8"))
+          bad = 0
+          for m in cat["modules"]:
+              builds = list((m.get("branches") or {}).values()) + (m.get("history") or [])
+              for b in builds:
+                  # legacy source-only артефакти без dex не перевіряємо по хешу
+                  fn = f"hmods/{m['id']}-{b['version']}.hmod"
+                  if not os.path.exists(fn):
+                      print("MISSING:", fn); bad = 1; continue
+                  import zipfile
+                  names = zipfile.ZipFile(fn).namelist()
+                  if not any(n.endswith(".dex") for n in names):
+                      print("LEGACY-SKIP:", fn); continue
+                  h = hashlib.sha256(open(fn, "rb").read()).hexdigest()
+                  if h != b.get("sha256", ""):
+                      print("SHA-MISMATCH:", fn); bad = 1
+          raise SystemExit(bad)
+          EOF

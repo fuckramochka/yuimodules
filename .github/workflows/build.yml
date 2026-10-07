@@ -95,24 +95,35 @@ jobs:
               base = os.path.basename(hmod)
               mod_id = base.rsplit("-", 1)[0]
               with open(hmod, "rb") as f:
-                  sha = hashlib.sha256(f.read()).hexdigest()
+                  raw = f.read()
+                  sha = hashlib.sha256(raw).hexdigest()
+              size = len(raw)
               shutil.copy(hmod, os.path.join(hdir, base))
               mfest = json.load(open(f"modules/{mod_id}/manifest.json", encoding="utf-8"))
               ver = mfest["version"]
               e = by_id.get(mod_id)
               if e is None:
                   continue
+              # Вітрина магазину: тягнемо з маніфеста модуля, щоб переживало перезбірки.
+              e["author"] = mfest.get("author", e.get("author", "AmeGram Team"))
+              e["category"] = mfest.get("category", e.get("category", "other"))
+              e["featured"] = bool(mfest.get("featured", e.get("featured", False)))
+              perms = mfest.get("permissions", None)
               st = e["branches"].get("stable", {})
               oldv = st.get("version", "")
               url = f"https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/{base}"
               if oldv and oldv != ver:
                   e.setdefault("history", []).insert(0, {
                       "branch": "stable", "version": oldv, "url": st.get("url", ""),
-                      "sha256": st.get("sha256", ""), "minApp": st.get("minApp", 0),
-                      "changelog": st.get("changelog", "")})
-              st.update({"version": ver, "url": url, "sha256": sha,
+                      "sha256": st.get("sha256", ""), "sizeBytes": st.get("sizeBytes", 0),
+                      "minApp": st.get("minApp", 0),
+                      "changelog": st.get("changelog", ""),
+                      "permissions": st.get("permissions", [])})
+              st.update({"version": ver, "url": url, "sha256": sha, "sizeBytes": size,
                          "minApp": mfest.get("minApp", st.get("minApp", 0)),
                          "changelog": mfest.get("changelog", st.get("changelog", ""))})
+              if perms is not None:
+                  st["permissions"] = perms
               print(mod_id, ver, sha[:12])
           json.dump(cat, open("modules.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
           print("catalog updated")

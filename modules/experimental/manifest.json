@@ -6,5 +6,11 @@
   "name": "Експерименти",
   "minApp": 7112,
   "description": "Твіки швидкості та лімітів.",
-  "changelog": "Видалені переїхали в привида; тут безліміти/буст/жести."
+  "changelog": "Видалені переїхали в привида; тут безліміти/буст/жести.",
+  "author": "AmeGram Team",
+  "category": "power",
+  "featured": false,
+  "permissions": [
+    "hook_net"
+  ]
 }

@@ -6,5 +6,11 @@
   "name": "Режим привида",
   "minApp": 7112,
   "description": "Невидимість: read/stories/online/typing + анти-видалення одним цілим.",
-  "changelog": "Привид+видалені одним модулем; синк префів у ядро; гейт вимкнення."
+  "changelog": "Привид+видалені одним модулем; синк префів у ядро; гейт вимкнення.",
+  "author": "AmeGram Team",
+  "category": "privacy",
+  "featured": true,
+  "permissions": [
+    "hook_net"
+  ]
 }

@@ -6,5 +6,12 @@
   "name": "Автоматизація",
   "minApp": 7112,
   "description": "Синк/бекап/кеш.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "power",
+  "featured": false,
+  "permissions": [
+    "background",
+    "storage"
+  ]
 }

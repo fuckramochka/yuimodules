@@ -6,5 +6,12 @@
   "name": "Хмарне сховище",
   "minApp": 7112,
   "description": "AES-256 диск.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "privacy",
+  "featured": false,
+  "permissions": [
+    "storage",
+    "network"
+  ]
 }

@@ -6,5 +6,11 @@
   "name": "Розшифровка",
   "minApp": 7112,
   "description": "STT голосових.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "media",
+  "featured": false,
+  "permissions": [
+    "network"
+  ]
 }

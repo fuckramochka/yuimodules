@@ -6,5 +6,12 @@
   "name": "Кастомізація",
   "minApp": 7112,
   "description": "Ame Studio, XML-картки.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "custom",
+  "featured": false,
+  "permissions": [
+    "hook_ui",
+    "storage"
+  ]
 }

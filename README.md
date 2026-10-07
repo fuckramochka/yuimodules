@@ -23,3 +23,15 @@ modules.json       каталог: branches {stable, beta} + history
 4. Користувачі тиснуть «Оновити» в каталозі — все.
 
 Ніяких релізів руками: бінарники комітяться прямо в `hmods/`.
+
+## Поля вітрини (читає магазин клієнта)
+
+`modules/<id>/manifest.json` додатково несе:
+
+- `author`, `category` (`privacy|media|power|custom|other`),
+  `featured` (карусель «Вибір редакції»), `permissions`
+  (`hook_net|hook_ui|storage|network|background`).
+- CI при публікації переносить їх у `modules.json` + дописує `sizeBytes`.
+
+Без підписів каталог працює на SHA-256 (деталка так і пише).
+Локальна перевірка: `python3 tools/lint_manifest.py --catalog modules.json`.

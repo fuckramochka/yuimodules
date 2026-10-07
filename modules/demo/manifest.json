@@ -6,5 +6,9 @@
   "name": "Демо-модуль",
   "minApp": 7112,
   "description": "Шаблон для розробників.",
-  "changelog": ""
+  "changelog": "",
+  "author": "AmeGram Team",
+  "category": "other",
+  "featured": false,
+  "permissions": []
 }
