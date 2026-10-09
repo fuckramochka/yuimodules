@@ -6,7 +6,7 @@ import app.amegram.hot.api.HotFileOrganization;
 import app.amegram.hot.api.HotHost;
 import app.amegram.hot.api.HotModule;
 
-/** Hot-updatable chat-folder naming policy. */
+/** Hot-updatable chat-to-folder naming policy. */
 public final class FileOrganizationModule implements HotModule, HotFileOrganization {
     private HotHost host;
 
@@ -32,10 +32,10 @@ public final class FileOrganizationModule implements HotModule, HotFileOrganizat
     @Override
     public String chatSubfolder(String chatTitle, long peerId) {
         String name = Normalizer.normalize(chatTitle == null ? "" : chatTitle, Normalizer.Form.NFKC)
-                .replaceAll("[\\\\u200B-\\\\u206F]", "")
-                .replaceAll("[\\\\p{Cc}\\\\p{Cf}\\\\\\\\/:*?\\\"<>|]", "_")
+                .replaceAll("[\\u200B-\\u206F]", "")
+                .replaceAll("[\\p{Cc}\\p{Cf}\\\\/:*?\"<>|]", "_")
                 .trim()
-                .replaceAll("^\\\\.+|\\\\.+$", "");
+                .replaceAll("^\\.+|\\.+$", "");
         return name.isEmpty() ? String.valueOf(peerId) : name;
     }
 }
