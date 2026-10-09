@@ -58,7 +58,19 @@ jobs:
           mkdir -p out-hmod
           FILTER="${{ inputs.modules }}"
           if [ -z "$FILTER" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            FILTER=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | awk -F/ '$1 == "modules" && $2 != "" { print $2 }' | sort -u | paste -sd, -)
+            FILTER=$(python3 - <<'PY'
+          import glob, json
+          catalog = json.load(open("modules.json", encoding="utf-8"))
+          entries = {item["id"]: item for item in catalog.get("modules", [])}
+          pending = []
+          for path in glob.glob("modules/*/manifest.json"):
+              manifest = json.load(open(path, encoding="utf-8"))
+              stable = entries.get(manifest["id"], {}).get("branches", {}).get("stable", {})
+              if manifest.get("version") != stable.get("version"):
+                  pending.append(manifest["id"])
+          print(",".join(sorted(pending)))
+          PY
+          )
           fi
           for moddir in modules/*/; do
             mod=$(basename "$moddir")
