@@ -1,5 +1,5 @@
 {
-  "updated": 1728067200,
+  "updated": 1791566556,
   "modules": [
     {
       "id": "player",
@@ -233,6 +233,19 @@
       "history": [],
       "author": "AmeGram Team",
       "category": "other",
+      "featured": false
+    },
+    {
+      "id": "fileorganization",
+      "name": "Організація файлів",
+      "description": "Правила безпечного формування підпапок для файлів, збережених із чатів.",
+      "entry": "com.amegram.mods.fileorganization.FileOrganizationModule",
+      "branches": {
+        "stable": {}
+      },
+      "history": [],
+      "author": "AmeGram Team",
+      "category": "power",
       "featured": false
     }
   ]
