@@ -1,6 +1,8 @@
 name: Build hmod
 
 on:
+  pull_request:
+    paths: ['modules/**', 'hot-api/**', 'modules.json', '.github/workflows/build.yml']
   push:
     branches: [main]
     paths: ['modules/**', 'hot-api/**', '.github/workflows/build.yml']
@@ -83,7 +85,15 @@ jobs:
           PY
           done
           ls -la out-hmod/*.hmod
+      - name: Upload PR HMOD artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmods
+          path: out-hmod/*.hmod
+          if-no-files-found: error
       - name: Publish hmods + catalog
+        if: github.event_name != 'pull_request'
         run: |
           python3 - <<'PY'
           import hashlib, json, os, shutil, glob
