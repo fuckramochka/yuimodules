@@ -241,7 +241,10 @@
       "description": "Правила безпечного формування підпапок для файлів, збережених із чатів.",
       "entry": "com.amegram.mods.fileorganization.FileOrganizationModule",
       "branches": {
-        "stable": {}
+        "stable": {
+          "version": "1.0.0",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/fileorganization-1.0.0.hmod"
+        }
       },
       "history": [],
       "author": "AmeGram Team",
@@ -254,7 +257,10 @@
       "description": "MD3-шит і мініплеєр як керований HMOD-модуль.",
       "entry": "com.amegram.mods.md3player.Md3PlayerModule",
       "branches": {
-        "stable": {}
+        "stable": {
+          "version": "1.0.0",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/md3player-1.0.0.hmod"
+        }
       },
       "history": [],
       "author": "AmeGram Team",
