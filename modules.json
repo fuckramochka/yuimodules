@@ -128,18 +128,31 @@
       "entry": "com.amegram.mods.stt.SttModule",
       "branches": {
         "stable": {
+          "version": "1.0.1",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/stt-1.0.1.hmod",
+          "sha256": "f339bcb8ff7203ff95863d5e70fea9b2476ad3bb99504c3a9ed0730da22ec6d9",
+          "minApp": 7112,
+          "changelog": "Detect the real audio/video MIME type before transcription.",
+          "permissions": [
+            "network"
+          ],
+          "sizeBytes": 6129
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.0",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/stt-1.0.0.hmod",
           "sha256": "46e4853e9becb7879752868ea020be8573f5cf068d909c7172b4cf0c1dc22095",
+          "sizeBytes": 5615,
           "minApp": 7112,
           "changelog": "",
           "permissions": [
             "network"
-          ],
-          "sizeBytes": 5615
+          ]
         }
-      },
-      "history": [],
+      ],
       "author": "AmeGram Team",
       "category": "media",
       "featured": false
