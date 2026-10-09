@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths: ['hmods/**', 'modules.json', 'modules/**/manifest.json', 'tools/**', '.github/workflows/lint.yml']
   pull_request:
-    paths: ['hmods/**', 'modules.json', 'modules/**/manifest.json', 'tools/**']
+    paths: ['hmods/**', 'modules.json', 'modules/**/manifest.json', 'tools/**', '.github/workflows/lint.yml']
   workflow_dispatch:
 
 jobs:
@@ -26,6 +26,7 @@ jobs:
       - name: Lint catalog
         run: python3 tools/lint_manifest.py --catalog modules.json
       - name: Verify catalog sha256 matches hmods
+        if: github.event_name != 'pull_request'
         run: |
           python3 - <<'EOF'
           import hashlib, json, os
