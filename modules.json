@@ -247,6 +247,19 @@
       "author": "AmeGram Team",
       "category": "power",
       "featured": false
+    },
+    {
+      "id": "md3player",
+      "name": "MD3-плеєр",
+      "description": "MD3-шит і мініплеєр як керований HMOD-модуль.",
+      "entry": "com.amegram.mods.md3player.Md3PlayerModule",
+      "branches": {
+        "stable": {}
+      },
+      "history": [],
+      "author": "AmeGram Team",
+      "category": "media",
+      "featured": true
     }
   ]
 }
