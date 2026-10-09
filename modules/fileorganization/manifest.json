@@ -1,0 +1,14 @@
+{
+  "id": "fileorganization",
+  "version": "1.0.0",
+  "branch": "stable",
+  "entry": "com.amegram.mods.fileorganization.FileOrganizationModule",
+  "name": "Організація файлів",
+  "minApp": 7112,
+  "description": "Правила безпечного формування підпапок для файлів, збережених із чатів.",
+  "changelog": "Перенесено політику назв підпапок із клієнта в HMOD.",
+  "author": "AmeGram Team",
+  "category": "power",
+  "featured": false,
+  "permissions": []
+}
