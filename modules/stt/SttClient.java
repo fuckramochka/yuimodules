@@ -49,7 +49,7 @@ public final class SttClient {
                 : "Transcribe this voice message verbatim. Return only the transcription.");
 
         JSONObject inline = new JSONObject();
-        inline.put("mime_type", "audio/ogg");
+        inline.put("mime_type", contentType(audio, isVideo));
         inline.put("data", base64(audio));
 
         JSONObject part2 = new JSONObject();
@@ -126,7 +126,7 @@ public final class SttClient {
         out.write(("--" + boundary + "\r\n").getBytes("UTF-8"));
         out.write(("Content-Disposition: form-data; name=\"" + name
                 + "\"; filename=\"" + file.getName() + "\"\r\n").getBytes("UTF-8"));
-        out.write("Content-Type: audio/ogg\r\n\r\n".getBytes("UTF-8"));
+        out.write(("Content-Type: " + contentType(file, false) + "\r\n\r\n").getBytes("UTF-8"));
         try (InputStream in = new FileInputStream(file)) {
             byte[] buf = new byte[32 * 1024];
             int n;
@@ -173,6 +173,20 @@ public final class SttClient {
             }
         }
         return new JSONObject(s);
+    }
+
+    private static String contentType(File file, boolean isVideo) {
+        String name = file != null ? file.getName().toLowerCase(java.util.Locale.ROOT) : "";
+        if (name.endsWith(".ogg") || name.endsWith(".oga") || name.endsWith(".opus")) return "audio/ogg";
+        if (name.endsWith(".m4a") || name.endsWith(".mp4")) return isVideo ? "video/mp4" : "audio/mp4";
+        if (name.endsWith(".webm")) return isVideo ? "video/webm" : "audio/webm";
+        if (name.endsWith(".mov")) return "video/quicktime";
+        if (name.endsWith(".3gp")) return isVideo ? "video/3gpp" : "audio/3gpp";
+        if (name.endsWith(".wav")) return "audio/wav";
+        if (name.endsWith(".flac")) return "audio/flac";
+        if (name.endsWith(".aac")) return "audio/aac";
+        if (name.endsWith(".mp3")) return "audio/mpeg";
+        return isVideo ? "video/mp4" : "audio/ogg";
     }
 
     private static String base64(File file) throws Exception {
