@@ -57,6 +57,9 @@ jobs:
           MODCP="$MODCP:$DEPCP"
           mkdir -p out-hmod
           FILTER="${{ inputs.modules }}"
+          if [ -z "$FILTER" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            FILTER=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | awk -F/ '$1 == "modules" && $2 != "" { print $2 }' | sort -u | paste -sd, -)
+          fi
           for moddir in modules/*/; do
             mod=$(basename "$moddir")
             if [ -n "$FILTER" ]; then
