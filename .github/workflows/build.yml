@@ -57,6 +57,9 @@ jobs:
           if [ -n "$RJAR" ]; then MODCP="$MODCP:$RJAR"; fi
           DEPCP=$(find ~/.gradle/caches/9.7.1/transforms ~/.gradle/caches/transforms-4 ~/.gradle/caches/modules-2 -name "*.jar" 2>/dev/null | grep -v -- "-sources" | grep -v -- "-javadoc" | tr '\n' ':')
           MODCP="$MODCP:$DEPCP"
+          mkdir -p out-hmod/hot-api-classes
+          javac -source 8 -target 8 -nowarn -proc:none -cp "$MODCP" -d out-hmod/hot-api-classes hot-api/*.java
+          MODCP="$MODCP:out-hmod/hot-api-classes"
           mkdir -p out-hmod
           FILTER="${{ inputs.modules }}"
           for moddir in modules/*/; do
