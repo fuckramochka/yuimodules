@@ -38,12 +38,10 @@ public class PlayerModule implements HotModule, HotPlayer {
         host = null;
     }
 
-    @Override
     public boolean isModernLayoutEnabled() {
         return host != null && host.getBool("modern_layout", true);
     }
 
-    @Override
     public boolean isVisualizerEnabled() {
         try {
             return app.miogram.bridge.player.MiogramPlayerPrefs.isVisualizerEnabled();
@@ -52,7 +50,6 @@ public class PlayerModule implements HotModule, HotPlayer {
         }
     }
 
-    @Override
     public boolean isLyricsEnabled() {
         return host != null && host.getBool("lyrics_enabled", true);
     }
