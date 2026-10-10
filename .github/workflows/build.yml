@@ -1,6 +1,8 @@
 name: Build hmod
 
 on:
+  pull_request:
+    paths: ['modules/**', 'hot-api/**', 'modules.json', '.github/workflows/build.yml']
   push:
     branches: [main]
     paths: ['modules/**', 'hot-api/**', '.github/workflows/build.yml']
@@ -55,6 +57,9 @@ jobs:
           if [ -n "$RJAR" ]; then MODCP="$MODCP:$RJAR"; fi
           DEPCP=$(find ~/.gradle/caches/9.7.1/transforms ~/.gradle/caches/transforms-4 ~/.gradle/caches/modules-2 -name "*.jar" 2>/dev/null | grep -v -- "-sources" | grep -v -- "-javadoc" | tr '\n' ':')
           MODCP="$MODCP:$DEPCP"
+          mkdir -p out-hmod/hot-api-classes
+          javac -source 8 -target 8 -nowarn -proc:none -cp "$MODCP" -d out-hmod/hot-api-classes hot-api/*.java
+          MODCP="$MODCP:out-hmod/hot-api-classes"
           mkdir -p out-hmod
           FILTER="${{ inputs.modules }}"
           if [ -z "$FILTER" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then
@@ -98,7 +103,15 @@ jobs:
           PY
           done
           ls -la out-hmod/*.hmod
+      - name: Upload PR HMOD artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmods
+          path: out-hmod/*.hmod
+          if-no-files-found: error
       - name: Publish hmods + catalog
+        if: github.event_name != 'pull_request'
         run: |
           python3 - <<'PY'
           import hashlib, json, os, shutil, glob
