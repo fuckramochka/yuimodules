@@ -247,6 +247,52 @@
       "author": "AmeGram Team",
       "category": "other",
       "featured": false
+    },
+    {
+      "id": "fileorganization",
+      "name": "Організація файлів",
+      "description": "Підпапки чатів + збереження по папках",
+      "entry": "com.amegram.mods.fileorganization.FileOrgModule",
+      "branches": {
+        "stable": {
+          "version": "1.0.0",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/fileorganization-1.0.0.hmod",
+          "sha256": "3e42fcde51c871e6ab2a7e6f685c2e398a2993c573cf4459bb610356470041e5",
+          "minApp": 7112,
+          "changelog": "Підпапки чатів + збереження по папках винесено в окремий модуль.",
+          "permissions": [
+            "storage"
+          ],
+          "sizeBytes": 3000
+        }
+      },
+      "history": [],
+      "author": "Yumi Team",
+      "category": "power",
+      "featured": false
+    },
+    {
+      "id": "ui",
+      "name": "Інтерфейс Yumi",
+      "description": "Стиль інтерфейсу на льоту: Yougram Expressive ↔ Classic без перевстановлення APK.",
+      "entry": "com.amegram.mods.ui.UiModule",
+      "branches": {
+        "stable": {
+          "version": "1.0.0",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.0.hmod",
+          "sha256": "86704a347f719c073f10bf76a44cc3c172cf92cd7caef53f340fddd77003489e",
+          "minApp": 7112,
+          "changelog": "Перемикання Yougram Expressive ↔ Classic на льоту.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 2670
+        }
+      },
+      "history": [],
+      "author": "Yumi Team",
+      "category": "custom",
+      "featured": true
     }
   ]
 }

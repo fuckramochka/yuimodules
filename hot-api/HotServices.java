@@ -1,7 +1,7 @@
 package app.amegram.hot.api;
 
 /**
- * Имена нативных сервисов, которыми модули расширяют сам Амэграм.
+ * Имена нативных сервисов, которыми модули расширяют сам Yumigram.
  * Модуль отдаёт реализацию через HotHost.registerService(),
  * ядро забирает через HotModulesManager.getService() и использует
  * вместо стокового поведения. Нет сервиса — работает сток.
@@ -14,7 +14,7 @@ public final class HotServices {
     /** {@link HotTranslator}: встроенный переводчик. */
     public static final String TRANSLATOR = "translator";
 
-    /** Произвольная фабрика/провайдер от модуля, контракт — в доке модуля. */
+    /** {@link HotPlayer}: додатковий пошук музики, відкривається з MD3. */
     public static final String PLAYER = "player";
 
     /** {@link HotGhost}: режим привида. */
@@ -37,4 +37,10 @@ public final class HotServices {
 
     /** {@link HotAutomation}: автоматизація та фонові задачі. */
     public static final String AUTOMATION = "automation";
+
+    /** Optional file destination and organization rules. */
+    public static final String FILE_ORGANIZATION = "file_organization";
+
+    /** {@link HotUi}: стиль інтерфейсу (Yougram Expressive ↔ Classic) на льоту. */
+    public static final String UI = "ui";
 }
