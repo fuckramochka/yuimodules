@@ -583,6 +583,10 @@ public class UiModule implements HotModule, HotUi {
                 "Yougram Expressive",
                 "Рідке скло, плаваюча панель та стиль Material You",
                 exp));
+        rows.add(HotRow.switchRow("theme_tonal_adaptation",
+                "Тональні кольори теми",
+                "Зберігає та насичує рожеві, темні та будь-які кастомні тони теми замість сірого",
+                readBool("theme_tonal_adaptation", true)));
 
         rows.add(HotRow.header("Пружинна тактильність (PixelPlayer)"));
         rows.add(HotRow.switchRow(KEY_STICKY_ENABLED,
@@ -606,6 +610,14 @@ public class UiModule implements HotModule, HotUi {
 
         rows.add(HotRow.header("Адаптація під тему"));
         rows.add(HotRow.info("Активний профіль: " + getThemeSummary() + "\n" + getAdaptiveProfileDescription()));
+
+        rows.add(HotRow.header("Дії"));
+        rows.add(HotRow.button("apply_live",
+                "Оновити інтерфейс",
+                "Миттєво перезастосувати кольори та стилі без перезапуску"));
+        rows.add(HotRow.button("reset_defaults",
+                "Скинути до стандартних",
+                "Повернути рекомендовані налаштування інтерфейсу Yumi"));
     }
 
     @Override
@@ -622,16 +634,27 @@ public class UiModule implements HotModule, HotUi {
 
     @Override
     public void onSettingsAction(String rowId) {
-        if ("go_expressive".equals(rowId)) {
+        if ("apply_live".equals(rowId) || "go_expressive".equals(rowId)) {
             writeInt(KEY_STYLE, 1);
             writeInt("style", 1);
             markTouched();
-            if (host != null) host.toast("Yougram Expressive застосовано");
+            if (host != null) host.toast("Інтерфейс Yumi оновлено");
         } else if ("go_classic".equals(rowId)) {
             writeInt(KEY_STYLE, 0);
             writeInt("style", 0);
             markTouched();
             if (host != null) host.toast("Yougram Classic застосовано");
+        } else if ("reset_defaults".equals(rowId)) {
+            writeInt(KEY_STYLE, 1);
+            writeInt("style", 1);
+            writeBool(KEY_STICKY_ENABLED, true);
+            writeBool(KEY_STICKY_THEME_ADAPTIVE, true);
+            writeBool(KEY_MINI_PLAYER, true);
+            writeBool(KEY_GLASS_MENU, true);
+            writeBool(KEY_LOADING, true);
+            writeBool("theme_tonal_adaptation", true);
+            markTouched();
+            if (host != null) host.toast("Налаштування скинуто до рекомендованих");
         }
     }
 

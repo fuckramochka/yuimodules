@@ -278,18 +278,30 @@
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.3",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.3.hmod",
+          "sha256": "1c286492cc5b08a4f694a618f7df22e71be4f04632f1c85f39ec507585adcf13",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.3: редизайн меню налаштувань у стилі MD3 Expressive (великі тактильні картки та кнопки зі сліпінг-пружинами), тональна адаптація кольорів (збереження та підсилення темно-рожевої та кастомних тем замість сірого кольору).",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 12169
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.2",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.2.hmod",
           "sha256": "9827700e050edb1906ad57b13b13ac35cee4bab2db627371dbad633c41a5fd0a",
+          "sizeBytes": 9890,
           "minApp": 7112,
           "changelog": "Версія 1.0.2: преміальні пружинні анімації PixelPlayer на базі StateListAnimator (без лагів у скролі), тактильний вібровідгук кнопок, круглий FAB пошуку 30dp, виправлені межі блюра і лаконічний список налаштувань.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 9890
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.1",
