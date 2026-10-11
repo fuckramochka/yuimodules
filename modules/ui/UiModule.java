@@ -2,11 +2,15 @@ package com.amegram.mods.ui;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.StateListAnimator;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 
 import java.lang.reflect.Field;
@@ -26,15 +30,15 @@ import app.amegram.hot.api.HotUi;
 
 /**
  * Модуль інтерфейсу Yumi: Yougram Expressive ↔ Classic на льоту,
- * оптимізовані липкі пружинні анімації у стилі PixelPlayer (Material You Expressive)
+ * оптимізовані липкі пружинні анімації у стилі PixelPlayer (Material 3 Expressive)
  * та динамічна адаптація фізики під активну тему Telegram (Світла / Темна / AMOLED / Monet).
  *
  * Оптимізації:
- * 1. Zero-Allocation пайплайн анімацій: перевикористання ValueAnimator та спільні слухачі.
- * 2. Кешовані інтерполятори затухаючого осцилятора — нуль алокацій у жестах.
- * 3. Singleton OnTouchListener для всіх кнопок і чіпів.
- * 4. Динамічна реакція на NotificationCenter Telegram (didSetNewTheme / didApplyNewTheme)
- *    з автоматичним підбором пружності, швидкості та сквишу під тип теми.
+ * 1. Zero-Jank: списки та чати скроляться на 100% нативній швидкості без деформації та розмиття рядків.
+ * 2. Безпечний StateListAnimator для інтерактивних кнопок (FAB, тулбар, чіпи, таби) — без підміни OnTouchListener.
+ * 3. Тактильний мікровідгук HapticFeedbackConstants.KEYBOARD_TAP у момент натискання.
+ * 4. Затухаючий гармонійний осцилятор з вивіреним овершутом 3.5%-5.0% без комичного вильоту за екран.
+ * 5. Динамічна реакція на NotificationCenter Telegram (didSetNewTheme / didApplyNewTheme).
  */
 public class UiModule implements HotModule, HotUi {
 
@@ -43,11 +47,8 @@ public class UiModule implements HotModule, HotUi {
     // AppearanceConfig keys
     private static final String KEY_STYLE = "OEAppearanceUiStyleMode";
     private static final String KEY_TOUCHED = "OEAppearanceUiStyleModeTouched";
-    private static final String KEY_RADIUS = "OEAppearanceSectionRadius";
-    private static final String KEY_DIVIDER = "OEAppearanceDividerStyle";
     private static final String KEY_SQUARE_FAB = "OEAppearanceSquareFab";
     private static final String KEY_GLASS_MENU = "OEAppearanceGlassMessageMenu";
-    private static final String KEY_M3_LIST = "OEAppearanceM3ListItems";
     private static final String KEY_MINI_PLAYER = "OEAppearanceMd3MiniPlayer";
     private static final String KEY_LOADING = "OEAppearanceNewLoadingStyle";
 
@@ -55,9 +56,6 @@ public class UiModule implements HotModule, HotUi {
     public static final String KEY_STICKY_ENABLED = "OEAppearanceStickyAnimations";
     public static final String KEY_STICKY_THEME_ADAPTIVE = "OEAppearanceStickyThemeAdaptive";
     public static final String KEY_STICKY_STYLE = "OEAppearanceStickyStyle"; // 0 = Subtle, 1 = Expressive, 2 = Ultra Bouncy
-    public static final String KEY_STICKY_LISTS = "OEAppearanceStickyLists";
-    public static final String KEY_STICKY_BUTTONS = "OEAppearanceStickyButtons";
-    public static final String KEY_STICKY_SHEETS = "OEAppearanceStickySheets";
 
     // Physics modes
     public static final int STYLE_SUBTLE = 0;
@@ -66,74 +64,22 @@ public class UiModule implements HotModule, HotUi {
 
     private HotHost host;
     private final List<HotHook.Unhook> activeHooks = new ArrayList<>();
-    private final Set<View> stickyAttachedViews = Collections.newSetFromMap(new WeakHashMap<View, Boolean>());
+    private final Set<View> animatedViews = Collections.newSetFromMap(new WeakHashMap<View, Boolean>());
 
     // Theme state
     private volatile boolean isThemeDark = false;
     private volatile boolean isThemeMonet = false;
     private volatile boolean isThemeAmoled = false;
 
-    // Pre-computed physics parameters (zero runtime calculation in gesture handlers)
-    private volatile float currentDamping = 5.5f;
-    private volatile float currentFreq = 11.5f;
-    private volatile long currentDuration = 400L;
-    private volatile float currentButtonPressScale = 0.94f;
-    private volatile float currentListPressScale = 0.96f;
+    // Pre-computed physics parameters
+    private volatile float currentDamping = 8.0f;
+    private volatile float currentFreq = 8.0f;
+    private volatile long currentDuration = 310L;
+    private volatile float currentButtonPressScale = 0.93f;
 
     // Cached pre-allocated interpolators
     private volatile Interpolator cachedSpringInterpolator;
     private final Interpolator cachedCompressInterpolator = new StickyCompressInterpolator();
-
-    // Reusable animator holders per view to eliminate garbage generation
-    private static final class ScaleAnimatorHolder {
-        final ValueAnimator animator;
-        final ValueAnimator.AnimatorUpdateListener updateListener;
-        final AnimatorListenerAdapter finishListener;
-        View targetView;
-        float targetScale;
-
-        ScaleAnimatorHolder() {
-            animator = new ValueAnimator();
-            updateListener = new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator a) {
-                    if (targetView != null) {
-                        float s = ((Float) a.getAnimatedValue()).floatValue();
-                        targetView.setScaleX(s);
-                        targetView.setScaleY(s);
-                    }
-                }
-            };
-            finishListener = new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator a) {
-                    if (targetView != null && targetScale == 1f) {
-                        targetView.setScaleX(1f);
-                        targetView.setScaleY(1f);
-                    }
-                }
-            };
-            animator.addUpdateListener(updateListener);
-            animator.addListener(finishListener);
-        }
-    }
-
-    private static final WeakHashMap<View, ScaleAnimatorHolder> runningAnimators = new WeakHashMap<>();
-
-    // Singleton shared touch listener for clickable views
-    private final View.OnTouchListener sharedStickyTouchListener = new View.OnTouchListener() {
-        @Override
-        public boolean onTouch(View view, MotionEvent event) {
-            if (!isStickyEnabled() || !readBool(KEY_STICKY_BUTTONS, true)) return false;
-            int action = event.getActionMasked();
-            if (action == MotionEvent.ACTION_DOWN) {
-                applyStickyPress(view, currentButtonPressScale);
-            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                applyStickyRelease(view);
-            }
-            return false;
-        }
-    };
 
     public UiModule() {
         rebuildPhysicsParameters();
@@ -155,7 +101,7 @@ public class UiModule implements HotModule, HotUi {
         setupThemeListener();
         setupHooks();
         try {
-            host.log("ui attached with theme-adaptive PixelPlayer sticky animations");
+            host.log("ui attached with theme-adaptive PixelPlayer spring animations");
         } catch (Throwable ignore) {
         }
     }
@@ -175,8 +121,8 @@ public class UiModule implements HotModule, HotUi {
             }
         }
         activeHooks.clear();
-        synchronized (stickyAttachedViews) {
-            stickyAttachedViews.clear();
+        synchronized (animatedViews) {
+            animatedViews.clear();
         }
         host = null;
     }
@@ -354,58 +300,50 @@ public class UiModule implements HotModule, HotUi {
     private void rebuildPhysicsParameters() {
         if (isThemeAdaptive()) {
             if (isThemeMonet) {
-                // Google Pixel Material 3 Expressive (чистий стиль PixelPlayer)
-                currentDamping = 5.6f;
-                currentFreq = 11.8f;
-                currentDuration = 390L;
-                currentButtonPressScale = 0.94f;
-                currentListPressScale = 0.96f;
-            } else if (isThemeAmoled) {
-                // AMOLED Pitch Black: ультра-чіткий відгук, без змазування пікселів
-                currentDamping = 6.8f;
-                currentFreq = 13.8f;
+                // Pixel Material 3 Expressive (чистий стиль PixelPlayer: овершут ~4.7%, 310ms)
+                currentDamping = 8.0f;
+                currentFreq = 8.0f;
                 currentDuration = 310L;
-                currentButtonPressScale = 0.955f;
-                currentListPressScale = 0.97f;
-            } else if (isThemeDark) {
-                // Темна / Нічна тема: зібраний, швидкий тактильний відгук
-                currentDamping = 6.2f;
-                currentFreq = 12.8f;
-                currentDuration = 340L;
+                currentButtonPressScale = 0.93f;
+            } else if (isThemeAmoled) {
+                // AMOLED Pure Black: ультра-чіткий відгук (270ms, без змазування OLED)
+                currentDamping = 9.5f;
+                currentFreq = 8.5f;
+                currentDuration = 270L;
                 currentButtonPressScale = 0.95f;
-                currentListPressScale = 0.965f;
+            } else if (isThemeDark) {
+                // Темна тема: зібраний, швидкий тактильний відгук (290ms)
+                currentDamping = 8.5f;
+                currentFreq = 8.2f;
+                currentDuration = 290L;
+                currentButtonPressScale = 0.94f;
             } else {
-                // Світла / Денна тема: плавний, органічний, текучий спрінг з соковитим овершутом
-                currentDamping = 5.2f;
-                currentFreq = 11.0f;
-                currentDuration = 420L;
-                currentButtonPressScale = 0.935f;
-                currentListPressScale = 0.955f;
+                // Світла тема: плавний, органічний спрінг (330ms, овершут ~5.5%)
+                currentDamping = 7.5f;
+                currentFreq = 8.0f;
+                currentDuration = 330L;
+                currentButtonPressScale = 0.93f;
             }
         } else {
-            // Ручний профіль користувача
             switch (stickyStyle()) {
                 case STYLE_SUBTLE:
-                    currentDamping = 7.5f;
-                    currentFreq = 14.0f;
-                    currentDuration = 300L;
-                    currentButtonPressScale = 0.965f;
-                    currentListPressScale = 0.975f;
+                    currentDamping = 10.0f;
+                    currentFreq = 9.0f;
+                    currentDuration = 250L;
+                    currentButtonPressScale = 0.96f;
                     break;
                 case STYLE_ULTRA_BOUNCY:
-                    currentDamping = 3.8f;
-                    currentFreq = 9.5f;
-                    currentDuration = 520L;
+                    currentDamping = 6.5f;
+                    currentFreq = 7.5f;
+                    currentDuration = 380L;
                     currentButtonPressScale = 0.91f;
-                    currentListPressScale = 0.935f;
                     break;
                 case STYLE_EXPRESSIVE:
                 default:
-                    currentDamping = 5.5f;
-                    currentFreq = 11.5f;
-                    currentDuration = 400L;
-                    currentButtonPressScale = 0.94f;
-                    currentListPressScale = 0.96f;
+                    currentDamping = 8.0f;
+                    currentFreq = 8.0f;
+                    currentDuration = 310L;
+                    currentButtonPressScale = 0.93f;
                     break;
             }
         }
@@ -420,35 +358,17 @@ public class UiModule implements HotModule, HotUi {
     }
 
     private String getAdaptiveProfileDescription() {
-        if (isThemeMonet) return "PixelPlayer M3 Expressive (динамічні тональні кольори)";
-        if (isThemeAmoled) return "Ультра-чіткий відгук (310ms, без OLED ghosting)";
-        if (isThemeDark) return "Преміальний швидкий відгук (340ms, чітка темна фізика)";
-        return "Плавний органічний спрінг (420ms, соковитий овершут 1.035x)";
-    }
-
-    private String getStickyStyleTitle() {
-        switch (stickyStyle()) {
-            case STYLE_SUBTLE: return "Делікатна (Subtle)";
-            case STYLE_ULTRA_BOUNCY: return "Желейна (Ultra Bouncy)";
-            case STYLE_EXPRESSIVE:
-            default: return "PixelPlayer Expressive";
-        }
-    }
-
-    private String getStickyStyleDesc() {
-        switch (stickyStyle()) {
-            case STYLE_SUBTLE: return "Мінімальне стискання та швидке затухання";
-            case STYLE_ULTRA_BOUNCY: return "Глибокий squish та багаторазові гармонійні коливання";
-            case STYLE_EXPRESSIVE:
-            default: return "Тактильний пружинний овершут у стилі Material 3 Expressive";
-        }
+        if (isThemeMonet) return "PixelPlayer M3 Expressive (динамічні кольори Monet, 310ms)";
+        if (isThemeAmoled) return "Ультра-чіткий відгук (270ms, без OLED ghosting)";
+        if (isThemeDark) return "Преміальний швидкий відгук (290ms, темна фізика)";
+        return "Органічний текучий спрінг (330ms, тактильний овершут 1.05x)";
     }
 
     // ==================== Optimized Spring Physics ====================
 
     /**
-     * Математично точна фізика затухаючого гармонійного осцилятора:
-     * progress(t) = 1 - e^(-damping * t) * (cos(freq * t) + (damping / freq) * sin(freq * t))
+     * Фізика затухаючого гармонійного осцилятора:
+     * progress(t) = 1 - e^(-damping * t) * (cos(freq * t) + (damping / (2 * freq)) * sin(freq * t))
      */
     public static class DampedSpringInterpolator implements Interpolator {
         private final float damping;
@@ -464,7 +384,7 @@ public class UiModule implements HotModule, HotUi {
             if (t <= 0f) return 0f;
             if (t >= 1f) return 1f;
             float decay = (float) Math.exp(-damping * t);
-            return 1f - decay * ((float) Math.cos(freq * t) + (damping / freq) * (float) Math.sin(freq * t));
+            return 1f - decay * ((float) Math.cos(freq * t) + (damping / (2f * freq)) * (float) Math.sin(freq * t));
         }
     }
 
@@ -477,55 +397,103 @@ public class UiModule implements HotModule, HotUi {
         }
     }
 
-    private void applyStickyPress(final View v, float targetScale) {
-        if (v == null || !isStickyEnabled()) return;
-        ensurePivot(v);
-        animateScale(v, v.getScaleX(), targetScale, 110L, cachedCompressInterpolator);
-    }
+    /**
+     * Перевірка: чи є елемент інтерактивною кнопкою / іконкою / чіпом.
+     * Списки (чати, повідомлення, налаштування) та великі контейнери СУВОРО ігноруються.
+     */
+    private static boolean isInteractiveButton(View v) {
+        if (v == null) return false;
+        try {
+            // Перевірка батьківських контейнерів: ніколи не чіпати елементи списків
+            Object parent = v.getParent();
+            while (parent instanceof View) {
+                String pName = parent.getClass().getName();
+                if (pName.contains("Recycler") || pName.contains("ListView") || pName.contains("Cell") || pName.contains("Row")) {
+                    return false;
+                }
+                parent = ((View) parent).getParent();
+            }
 
-    private void applyStickyRelease(final View v) {
-        if (v == null || !isStickyEnabled()) return;
-        ensurePivot(v);
-        Interpolator interp = cachedSpringInterpolator;
-        if (interp == null) interp = new DampedSpringInterpolator(currentDamping, currentFreq);
-        animateScale(v, v.getScaleX(), 1f, currentDuration, interp);
-    }
+            String name = v.getClass().getName();
+            // Суворе виключення клітинок, рядків та повнорозмірних контейнерів
+            if (name.contains("Cell") || name.contains("Row") || name.contains("Message")
+                    || name.contains("Recycler") || name.contains("Activity")
+                    || name.contains("Content") || name.contains("Container") || name.contains("Pager")) {
+                return false;
+            }
 
-    private static void ensurePivot(View v) {
-        if (v.getPivotX() == 0 && v.getPivotY() == 0 && v.getWidth() > 0 && v.getHeight() > 0) {
-            v.setPivotX(v.getWidth() * 0.5f);
-            v.setPivotY(v.getHeight() * 0.5f);
+            // Виключення контейнерів на всю ширину екрану
+            ViewGroup.LayoutParams lp = v.getLayoutParams();
+            if (lp != null && lp.width == ViewGroup.LayoutParams.MATCH_PARENT) {
+                return false;
+            }
+
+            // Відомі класи кнопок та інтерактивних елементів
+            if (name.contains("Button") || name.contains("Fab") || name.contains("FAB")
+                    || name.contains("Chip") || name.contains("MenuItem")
+                    || name.contains("PlayPause") || name.contains("GlassTabView")
+                    || name.contains("ActionView")) {
+                return true;
+            }
+
+            // Звичайні кнопки та клікабельні іконки
+            if (v instanceof android.widget.Button || v instanceof android.widget.ImageButton || v instanceof android.widget.ImageView) {
+                return true;
+            }
+        } catch (Throwable ignore) {
         }
+        return false;
     }
 
     /**
-     * Оптимізована анімація з повторним використанням ValueAnimator.
-     * Нуль алокацій об'єктів під час повторних жестів.
+     * Підключення нативного StateListAnimator до кнопки з пружинною фізикою та тактильністю.
+     * Не підміняє OnTouchListener, не збиває скрол і працює на апаратному прискоренні.
      */
-    private static void animateScale(final View v, float fromScale, final float targetScale, long duration, Interpolator interp) {
-        if (v == null) return;
-        ScaleAnimatorHolder holder = runningAnimators.get(v);
-        if (holder == null) {
-            holder = new ScaleAnimatorHolder();
-            runningAnimators.put(v, holder);
-        } else if (holder.animator.isRunning()) {
-            holder.animator.cancel();
+    private void applySpringStateListAnimator(final View v) {
+        if (v == null || !isStickyEnabled()) return;
+        synchronized (animatedViews) {
+            if (animatedViews.contains(v)) return;
+            animatedViews.add(v);
         }
-        holder.targetView = v;
-        holder.targetScale = targetScale;
-        holder.animator.setFloatValues(fromScale, targetScale);
-        holder.animator.setDuration(duration);
-        if (interp != null) holder.animator.setInterpolator(interp);
-        holder.animator.start();
-    }
 
-    private void attachStickyTouchToView(final View v) {
-        if (v == null) return;
-        synchronized (stickyAttachedViews) {
-            if (stickyAttachedViews.contains(v)) return;
-            stickyAttachedViews.add(v);
+        try {
+            StateListAnimator sla = new StateListAnimator();
+
+            // 1. Стан натискання (state_pressed): швидке стискання 80ms + чіткий тактильний вібровідгук
+            AnimatorSet pressedSet = new AnimatorSet();
+            ObjectAnimator scaleXDown = ObjectAnimator.ofFloat(v, View.SCALE_X, currentButtonPressScale);
+            ObjectAnimator scaleYDown = ObjectAnimator.ofFloat(v, View.SCALE_Y, currentButtonPressScale);
+            pressedSet.playTogether(scaleXDown, scaleYDown);
+            pressedSet.setDuration(80L);
+            pressedSet.setInterpolator(cachedCompressInterpolator);
+            pressedSet.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    try {
+                        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    } catch (Throwable ignore) {
+                    }
+                }
+            });
+
+            // 2. Стан відпускання: пружинне повернення з природним овершутом
+            AnimatorSet releaseSet = new AnimatorSet();
+            ObjectAnimator scaleXUp = ObjectAnimator.ofFloat(v, View.SCALE_X, 1f);
+            ObjectAnimator scaleYUp = ObjectAnimator.ofFloat(v, View.SCALE_Y, 1f);
+            releaseSet.playTogether(scaleXUp, scaleYUp);
+            releaseSet.setDuration(currentDuration);
+            Interpolator springInterp = cachedSpringInterpolator;
+            if (springInterp == null) {
+                springInterp = new DampedSpringInterpolator(currentDamping, currentFreq);
+            }
+            releaseSet.setInterpolator(springInterp);
+
+            sla.addState(new int[]{android.R.attr.state_pressed}, pressedSet);
+            sla.addState(new int[0], releaseSet);
+
+            v.setStateListAnimator(sla);
+        } catch (Throwable ignore) {
         }
-        v.setOnTouchListener(sharedStickyTouchListener);
     }
 
     // ==================== Dynamic ART Hooks ====================
@@ -534,34 +502,7 @@ public class UiModule implements HotModule, HotUi {
         if (host == null) return;
         ClassLoader cl = host.context() != null ? host.context().getClassLoader() : getClass().getClassLoader();
 
-        // 1. RecyclerListView: перехоплення натискання на елементи списку (чати, повідомлення, налаштування)
-        try {
-            Class<?> rlvClass = Class.forName("org.telegram.ui.Components.RecyclerListView", true, cl);
-            Method m = rlvClass.getDeclaredMethod("onChildPressed", View.class, float.class, float.class, boolean.class);
-            HotHook.Unhook u = host.hook(m, new HotHook.Callback() {
-                @Override
-                public void after(HotHook.Call call) throws Throwable {
-                    if (!isStickyEnabled()) return;
-                    Object[] args = call.getArgs();
-                    if (args != null && args.length >= 4 && args[0] instanceof View) {
-                        View child = (View) args[0];
-                        if (child.getWidth() <= 0 || child.getHeight() <= 0) return;
-                        boolean pressed = (Boolean) args[3];
-                        if (pressed) {
-                            applyStickyPress(child, currentListPressScale);
-                        } else {
-                            applyStickyRelease(child);
-                        }
-                    }
-                }
-            });
-            if (u != null) activeHooks.add(u);
-            host.log("ui: hooked RecyclerListView.onChildPressed for sticky lists");
-        } catch (Throwable t) {
-            host.log("ui: hook RecyclerListView failed: " + t.getMessage());
-        }
-
-        // 2. View.setOnClickListener: підключення липкого відгуку для кнопок, плашок, FAB та чіпів
+        // 1. View.setOnClickListener: пружинний відгук для кнопок, FAB, чіпів та іконок
         try {
             Method m = View.class.getDeclaredMethod("setOnClickListener", View.OnClickListener.class);
             HotHook.Unhook u = host.hook(m, new HotHook.Callback() {
@@ -573,19 +514,19 @@ public class UiModule implements HotModule, HotUi {
                     if (target instanceof View) {
                         View v = (View) target;
                         View.OnClickListener l = (args != null && args.length > 0) ? (View.OnClickListener) args[0] : null;
-                        if (l != null) {
-                            attachStickyTouchToView(v);
+                        if (l != null && isInteractiveButton(v)) {
+                            applySpringStateListAnimator(v);
                         }
                     }
                 }
             });
             if (u != null) activeHooks.add(u);
-            host.log("ui: hooked View.setOnClickListener for sticky buttons");
+            host.log("ui: hooked View.setOnClickListener for spring buttons");
         } catch (Throwable t) {
             host.log("ui: hook View.setOnClickListener failed: " + t.getMessage());
         }
 
-        // 3. BottomSheet: підміна інтерполятора відкриття шторок на пружинний
+        // 2. BottomSheet: плавний пружинний інтерполятор появи шторок
         try {
             final Class<?> bsClass = Class.forName("org.telegram.ui.ActionBar.BottomSheet", true, cl);
             List<HotHook.Unhook> sheetHooks = host.hookAll(bsClass, "show", new HotHook.Callback() {
@@ -610,7 +551,7 @@ public class UiModule implements HotModule, HotUi {
             host.log("ui: hook BottomSheet failed: " + t.getMessage());
         }
 
-        // 4. ActionBarMenuItem: тактильний squish-відгук для іконок верхнього тулбара (пошук, меню, назад)
+        // 3. ActionBarMenuItem: пружинний відгук для іконок верхнього тулбара (пошук, назад, три крапки)
         try {
             Class<?> itemClass = Class.forName("org.telegram.ui.ActionBar.ActionBarMenuItem", true, cl);
             Method m = itemClass.getDeclaredMethod("onTouchEvent", MotionEvent.class);
@@ -619,16 +560,8 @@ public class UiModule implements HotModule, HotUi {
                 public void before(HotHook.Call call) throws Throwable {
                     if (!isStickyEnabled()) return;
                     Object target = call.getThis();
-                    Object[] args = call.getArgs();
-                    if (target instanceof View && args != null && args.length > 0 && args[0] instanceof MotionEvent) {
-                        View v = (View) target;
-                        MotionEvent ev = (MotionEvent) args[0];
-                        int action = ev.getActionMasked();
-                        if (action == MotionEvent.ACTION_DOWN) {
-                            applyStickyPress(v, currentButtonPressScale);
-                        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                            applyStickyRelease(v);
-                        }
+                    if (target instanceof View) {
+                        applySpringStateListAnimator((View) target);
                     }
                 }
             });
@@ -645,27 +578,34 @@ public class UiModule implements HotModule, HotUi {
     public void fillSettings(List<HotRow> rows) {
         boolean exp = styleMode() == 1;
 
-        rows.add(HotRow.header("Стиль (на льоту, без APK)"));
+        rows.add(HotRow.header("Стиль оформлення"));
         rows.add(HotRow.switchRow("expressive",
                 "Yougram Expressive",
-                "Рідке скло + M3 сегменти 28dp. Вимкнено = Classic.",
+                "Рідке скло, плаваюча панель та стиль Material You",
                 exp));
-        rows.add(HotRow.button("go_expressive", "Увімкнути Expressive", "Скло, сегменти, Monet"));
-        rows.add(HotRow.button("go_classic", "Увімкнути Classic", "Стандартні картки 20dp"));
 
-        rows.add(HotRow.header("Липкі анімації Yumi (PixelPlayer)"));
+        rows.add(HotRow.header("Пружинна тактильність (PixelPlayer)"));
         rows.add(HotRow.switchRow(KEY_STICKY_ENABLED,
-                "Липкі анімації",
-                "Тактильний пружинний відгук у стилі PixelPlayer та автоадаптація під тему Telegram",
+                "Липкі анімації та вібровідгук",
+                "Пружинна фізика кнопок, шторок і меню з адаптацією під тему",
                 isStickyEnabled()));
 
-        rows.add(HotRow.header("Деталі Expressive"));
-        rows.add(HotRow.switchRow(KEY_SQUARE_FAB, "Squircle FAB", "Квадратна кнопка 16dp", readBool(KEY_SQUARE_FAB, true)));
-        rows.add(HotRow.switchRow(KEY_GLASS_MENU, "Скляне меню", "GlassMessageMenu", readBool(KEY_GLASS_MENU, true)));
-        rows.add(HotRow.switchRow(KEY_M3_LIST, "M3-рядки", "Вищі рядки, кольорові іконки", readBool(KEY_M3_LIST, false)));
-        rows.add(HotRow.switchRow(KEY_MINI_PLAYER, "MD3 міні-плеєр", "Плашка в чатах", readBool(KEY_MINI_PLAYER, true)));
-        rows.add(HotRow.switchRow(KEY_LOADING, "M3-лоадери", "Нові індикатори", readBool(KEY_LOADING, true)));
-        rows.add(HotRow.info("Усі анімації кнопок, списків, шторок та адаптація під тему увімкнені за замовчуванням."));
+        rows.add(HotRow.header("Елементи інтерфейсу"));
+        rows.add(HotRow.switchRow(KEY_MINI_PLAYER,
+                "MD3 Міні-плеєр",
+                "Плаваюча плашка медіаплеєра над чатами",
+                readBool(KEY_MINI_PLAYER, true)));
+        rows.add(HotRow.switchRow(KEY_GLASS_MENU,
+                "Скляне меню",
+                "Ефект рідкого скла для контекстних дій",
+                readBool(KEY_GLASS_MENU, true)));
+        rows.add(HotRow.switchRow(KEY_LOADING,
+                "M3-індикатори",
+                "Плавні Material You індикатори завантаження",
+                readBool(KEY_LOADING, true)));
+
+        rows.add(HotRow.header("Адаптація під тему"));
+        rows.add(HotRow.info("Активний профіль: " + getThemeSummary() + "\n" + getAdaptiveProfileDescription()));
     }
 
     @Override
@@ -686,12 +626,12 @@ public class UiModule implements HotModule, HotUi {
             writeInt(KEY_STYLE, 1);
             writeInt("style", 1);
             markTouched();
-            if (host != null) host.toast("Expressive — застосовано на льоту");
+            if (host != null) host.toast("Yougram Expressive застосовано");
         } else if ("go_classic".equals(rowId)) {
             writeInt(KEY_STYLE, 0);
             writeInt("style", 0);
             markTouched();
-            if (host != null) host.toast("Classic — застосовано на льоту");
+            if (host != null) host.toast("Yougram Classic застосовано");
         }
     }
 

@@ -1,5 +1,5 @@
 {
-  "updated": 1728633800,
+  "updated": 1728634500,
   "modules": [
     {
       "id": "player",
@@ -278,18 +278,30 @@
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.2",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.2.hmod",
+          "sha256": "d7155441c24c7b34f00746a75ba977a83537a9c7d13c844d6683921d43e6a5c5",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.2: преміальні пружинні анімації PixelPlayer на базі StateListAnimator (без лагів у скролі), тактильний вібровідгук кнопок, круглий FAB пошуку 30dp, виправлені межі блюра і лаконічний список налаштувань.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 11756
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.1",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.1.hmod",
           "sha256": "c3a2a8c682ad993da25a4d63218452ccfdcaa81a63f356971768a052704abced",
+          "sizeBytes": 11169,
           "minApp": 7112,
           "changelog": "Версія 1.0.1: липкі анімації у стилі PixelPlayer увімкнені за замовчуванням, чистий інтерфейс без зайвих перемикачів, адаптація під тему Telegram.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 11169
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.0",
