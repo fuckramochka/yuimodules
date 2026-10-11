@@ -1,5 +1,5 @@
 {
-  "updated": 1728067200,
+  "updated": 1728633800,
   "modules": [
     {
       "id": "player",
@@ -274,22 +274,35 @@
     {
       "id": "ui",
       "name": "Інтерфейс Yumi",
-      "description": "Стиль інтерфейсу на льоту: Yougram Expressive ↔ Classic без перевстановлення APK.",
+      "description": "Стиль інтерфейсу на льоту: Yougram Expressive ↔ Classic та автоматичні липкі анімації PixelPlayer (Material You).",
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.1",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.1.hmod",
+          "sha256": "3ab1a82813aeda4141116509d740b5d73c649e4eecdf850eda6ed9706865e8a6",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.1: липкі анімації у стилі PixelPlayer увімкнені за замовчуванням, чистий інтерфейс без зайвих перемикачів, адаптація під тему Telegram.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 13000
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.0",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.0.hmod",
           "sha256": "5c3cb271568ae1df15a76d765f399f3ce382605b943480f1c1f76013b0ad90cc",
+          "sizeBytes": 3742,
           "minApp": 7112,
           "changelog": "Перемикання Yougram Expressive ↔ Classic без перевстановлення APK.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 3742
+          ]
         }
-      },
-      "history": [],
+      ],
       "author": "Yumi Team",
       "category": "custom",
       "featured": true
