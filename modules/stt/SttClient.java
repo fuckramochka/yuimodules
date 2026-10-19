@@ -37,16 +37,35 @@ public final class SttClient {
         return geminiTranscribe(f, isVideo, apiKey, model);
     }
 
+    private static final String PROMPT_VOICE =
+            "Your task is to transcribe the provided voice/audio message with high accuracy, preserving the speaker's emotional state, intensity, and tone directly in the text formatting:\n"
+            + "1. Transcribe Speech Verbatim: Transcribe every single spoken word accurately. NEVER replace spoken words with audio tags. Spoken dialogue must NEVER be omitted.\n"
+            + "2. Emotion & Prosody Formatting Rules:\n"
+            + "   - Shouting / Screaming / High Anger: Write in UPPERCASE (КАПСОМ) with exclamation marks (!).\n"
+            + "   - Crying / Sobbing: Place ellipses (...) at emotional pauses.\n"
+            + "   - Whispering: Transcribe quietly in lowercase.\n"
+            + "   - Laughter: Naturally integrate natural laughter markers like \"(сміється)\".\n"
+            + "3. Output Only: Output ONLY the final transcribed text in the original language spoken. No introductions, explanations, or meta-comments.";
+
+    private static final String PROMPT_VIDEO =
+            "Це кружечок (відеоповідомлення) у Telegram.\n"
+            + "Твоє завдання — транскрибувати мову спікера та описати ключові візуальні дії/жести:\n"
+            + "1. Почни відповідь із позначки: \"[Кружечок] \"\n"
+            + "2. Дослівно розпізнай слова спікера.\n"
+            + "3. Візуальні дії, жести або події позначай курсивом у зірочках (наприклад: *махає рукою*, *посміхається*).\n"
+            + "4. Емоції передавай пунктуацією або КАПСОМ, якщо спікер вигукує.\n"
+            + "5. Виведи ТІЛЬКИ текст транскрипції та дії мовою оригіналу без зайвих вступів.";
+
     private static String geminiTranscribe(File audio, boolean isVideo,
                                           String key, String model) throws Exception {
-        if (model == null || model.isEmpty()) model = "gemini-2.5-flash";
+        if (model == null || model.isEmpty() || "gemini-2.5-flash".equals(model) || "gemini-2.0-flash".equals(model)) {
+            model = "gemini-3.5-flash-lite";
+        }
         String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/"
                 + model + ":generateContent?key=" + key;
 
         JSONObject part1 = new JSONObject();
-        part1.put("text", isVideo
-                ? "Transcribe the speech from this video verbatim. Return only the transcription."
-                : "Transcribe this voice message verbatim. Return only the transcription.");
+        part1.put("text", isVideo ? PROMPT_VIDEO : PROMPT_VOICE);
 
         JSONObject inline = new JSONObject();
         inline.put("mime_type", contentType(audio, isVideo));
@@ -66,8 +85,34 @@ public final class SttClient {
         contents.put(content);
         body.put("contents", contents);
 
-        JSONObject resp = postJson(endpoint, body.toString(), null);
-        return extractGeminiText(resp);
+        JSONObject resp;
+        try {
+            resp = postJson(endpoint, body.toString(), null);
+        } catch (Exception e) {
+            String fallbackModel = !"gemini-3.5-flash-lite".equals(model) ? "gemini-3.5-flash-lite" : "gemini-3.5-flash";
+            String fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
+                    + fallbackModel + ":generateContent?key=" + key;
+            try {
+                resp = postJson(fallbackUrl, body.toString(), null);
+            } catch (Exception ignored) {
+                throw e;
+            }
+        }
+        return formatTranscribedEmotionText(extractGeminiText(resp));
+    }
+
+    public static String formatTranscribedEmotionText(String text) {
+        if (text == null) return "";
+        return text.replaceAll("(?i)\\[crying\\]", "...")
+                .replaceAll("(?i)\\[sob(bing)?\\]", "...")
+                .replaceAll("(?i)\\[screaming\\]", "!")
+                .replaceAll("(?i)\\[shouting\\]", "!")
+                .replaceAll("(?i)\\[sighs?\\]", "...")
+                .replaceAll("(?i)\\[whispering\\]", "")
+                .replaceAll("(?i)\\[(music|applause|cheering|laughter|footsteps|coughing)\\]", "")
+                .replaceAll(" +", " ")
+                .replaceAll(" \\.", ".")
+                .trim();
     }
 
     private static String extractGeminiText(JSONObject resp) throws Exception {

@@ -23,7 +23,9 @@ public final class AiClient {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new IllegalStateException("Нема API-ключа. Вкажи його в налаштуваннях модуля.");
         }
-        if (model == null || model.isEmpty()) model = "gemini-2.5-flash";
+        if (model == null || model.isEmpty() || "gemini-2.5-flash".equals(model) || "gemini-2.0-flash".equals(model)) {
+            model = "gemini-3.5-flash-lite";
+        }
         String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/"
                 + model + ":generateContent?key=" + apiKey;
 

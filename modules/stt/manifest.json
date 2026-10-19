@@ -1,13 +1,13 @@
 {
   "id": "stt",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "branch": "stable",
   "entry": "com.amegram.mods.stt.SttModule",
   "name": "Розшифровка",
   "minApp": 7112,
-  "description": "STT голосових.",
-  "changelog": "Detect the real audio/video MIME type before transcription.",
-  "author": "AmeGram Team",
+  "description": "ШІ-розпізнавання голосу та кружечків на базі Google Gemini 3.5 Flash Lite або OpenAI Whisper.",
+  "changelog": "Версія 1.0.2: перехід на Gemini 3.5 Flash Lite (в 10 разів вищі ліміти), резервний ланцюг, форматування емоцій та автопідхоплення ключа з клієнта.",
+  "author": "Yumi Team",
   "category": "media",
   "featured": false,
   "permissions": [

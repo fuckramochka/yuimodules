@@ -13,12 +13,24 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 OUT="$HERE/out"
 rm -rf "$OUT" && mkdir -p "$OUT/classes"
 
-ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
-D8=$(ls -d "$ANDROID_HOME/build-tools/"*/d8 2>/dev/null | sort | tail -1)
+if [ -z "$ANDROID_HOME" ] && [ -d "/home/user/android-sdk" ]; then
+  export ANDROID_HOME="/home/user/android-sdk"
+fi
+if ! command -v javac >/dev/null 2>&1; then
+  JDK_BIN="$(ls -d /home/user/.gradle/jdks/*/bin 2>/dev/null | head -1)"
+  if [ -n "$JDK_BIN" ]; then export PATH="$JDK_BIN:$PATH"; fi
+fi
 
+ANDROID_JAR="$(ls -d "$ANDROID_HOME"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1)"
+D8=$(ls -d "$ANDROID_HOME/build-tools/"*/d8 2>/dev/null | sort -V | tail -1)
+
+APP_API_DIR="/home/user/amenew/TMessagesProj/src/main/java"
 CP="$HERE/hot-api:$ANDROID_JAR"
 LIBS="--lib $ANDROID_JAR"
-if [ -n "$APP_API_JAR" ] && [ -f "$APP_API_JAR" ]; then
+if [ -d "$APP_API_DIR" ]; then
+  CP="$CP:$APP_API_DIR"
+  LIBS="$LIBS --lib $APP_API_DIR"
+elif [ -n "$APP_API_JAR" ] && [ -f "$APP_API_JAR" ]; then
   CP="$CP:$APP_API_JAR"
   LIBS="$LIBS --lib $APP_API_JAR"
 fi
@@ -33,8 +45,10 @@ javac -source 8 -target 8 -nowarn \
   -d "$OUT/classes" \
   "$HERE/modules/$MOD/"*.java
 
+mkdir -p "$OUT/dex"
+CLASS_FILES=$(find "$OUT/classes" -name "*.class")
 # shellcheck disable=SC2086
-"$D8" --min-api 27 $LIBS --output "$OUT/dex" "$OUT/classes"
+"$D8" --min-api 27 $LIBS --output "$OUT/dex" $CLASS_FILES
 
 python3 - "$HERE/modules/$MOD/manifest.json" "$VER" "$BRANCH" <<'PY'
 import json, sys
@@ -46,6 +60,10 @@ json.dump(m, open("/tmp/hmod_manifest.json", "w"), ensure_ascii=False)
 PY
 
 mkdir -p "$OUT/pkg" && cp "$OUT/dex/classes.dex" "$OUT/pkg/" && cp /tmp/hmod_manifest.json "$OUT/pkg/manifest.json"
-cd "$OUT/pkg" && zip -q -X "$OUT/$MOD-$VER.hmod" classes.dex manifest.json
+if command -v zip >/dev/null 2>&1; then
+  (cd "$OUT/pkg" && zip -q -X "$OUT/$MOD-$VER.hmod" classes.dex manifest.json)
+else
+  (cd "$OUT/pkg" && python3 -c "import zipfile, sys; z = zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED); z.write('classes.dex'); z.write('manifest.json'); z.close()" "$OUT/$MOD-$VER.hmod")
+fi
 sha256sum "$OUT/$MOD-$VER.hmod"
 echo "Готово: $OUT/$MOD-$VER.hmod — залей в релиз и обнови modules.json (url + sha256 + version)."
