@@ -330,8 +330,8 @@
           "branch": "stable",
           "version": "1.0.3",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.3.hmod",
-          "sha256": "1c286492cc5b08a4f694a618f7df22e71be4f04632f1c85f39ec507585adcf13",
-          "sizeBytes": 12169,
+          "sha256": "02f85e39c7f61c7dbb0c7108dddf3ce5ef8b67be8ef37b159433b2ca3ccc5270",
+          "sizeBytes": 10331,
           "minApp": 7112,
           "changelog": "Версія 1.0.3: редизайн меню налаштувань у стилі MD3 Expressive (великі тактильні картки та кнопки зі сліпінг-пружинами), тональна адаптація кольорів (збереження та підсилення темно-рожевої та кастомних тем замість сірого кольору).",
           "permissions": [
