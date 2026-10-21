@@ -29,16 +29,10 @@ import app.amegram.hot.api.HotServices;
 import app.amegram.hot.api.HotUi;
 
 /**
- * Модуль інтерфейсу Yumi: Yougram Expressive ↔ Classic на льоту,
- * оптимізовані липкі пружинні анімації у стилі PixelPlayer (Material 3 Expressive)
- * та динамічна адаптація фізики під активну тему Telegram (Світла / Темна / AMOLED / Monet).
- *
- * Оптимізації:
- * 1. Zero-Jank: списки та чати скроляться на 100% нативній швидкості без деформації та розмиття рядків.
- * 2. Безпечний StateListAnimator для інтерактивних кнопок (FAB, тулбар, чіпи, таби) — без підміни OnTouchListener.
- * 3. Тактильний мікровідгук HapticFeedbackConstants.KEYBOARD_TAP у момент натискання.
- * 4. Затухаючий гармонійний осцилятор з вивіреним овершутом 3.5%-5.0% без комичного вильоту за екран.
- * 5. Динамічна реакція на NotificationCenter Telegram (didSetNewTheme / didApplyNewTheme).
+ * Модуль інтерфейсу Yumi v1.0.5:
+ * Yougram Expressive ↔ Classic на льоту, преміальна пружинна тактильність (Material 3 Expressive),
+ * плавний тактильний відгук на картках чатів (DialogCell 0.985x), шовкове відкриття шторок (BottomSheet)
+ * та реактивні мікро-анімації кнопок (0.965x) без затримок і желе-ефекту.
  */
 public class UiModule implements HotModule, HotUi {
 
@@ -52,6 +46,17 @@ public class UiModule implements HotModule, HotUi {
     private static final String KEY_MINI_PLAYER = "OEAppearanceMd3MiniPlayer";
     private static final String KEY_LOADING = "OEAppearanceNewLoadingStyle";
 
+    // Chat list display keys
+    public static final String KEY_CHAT_STYLE = "OEAppearanceChatListStyle";
+    public static final String KEY_CHAT_PINNED_ACCENT = "OEAppearanceChatPinnedAccent";
+    public static final String KEY_CHAT_SQUIRCLE_AVATARS = "OEAppearanceChatSquircleAvatars";
+    public static final String KEY_CHAT_CARD_OUTLINE = "OEAppearanceChatCardOutline";
+    public static final String KEY_CHAT_CARDS_TOUCH = "OEAppearanceChatCardsTouch";
+
+    public static final int CHAT_STYLE_CARDS = 0;
+    public static final int CHAT_STYLE_ISLANDS = 1;
+    public static final int CHAT_STYLE_FLAT = 2;
+
     // Sticky animations configuration keys
     public static final String KEY_STICKY_ENABLED = "OEAppearanceStickyAnimations";
     public static final String KEY_STICKY_THEME_ADAPTIVE = "OEAppearanceStickyThemeAdaptive";
@@ -63,6 +68,9 @@ public class UiModule implements HotModule, HotUi {
     public static final int STYLE_ULTRA_BOUNCY = 2;
 
     private HotHost host;
+    private YumiNavController navController;
+    private YumiChatRowRenderer chatRowRenderer;
+    private YumiScreenChrome screenChrome;
     private final List<HotHook.Unhook> activeHooks = new ArrayList<>();
     private final Set<View> animatedViews = Collections.newSetFromMap(new WeakHashMap<View, Boolean>());
 
@@ -71,15 +79,17 @@ public class UiModule implements HotModule, HotUi {
     private volatile boolean isThemeMonet = false;
     private volatile boolean isThemeAmoled = false;
 
-    // Pre-computed physics parameters
-    private volatile float currentDamping = 8.0f;
-    private volatile float currentFreq = 8.0f;
-    private volatile long currentDuration = 310L;
-    private volatile float currentButtonPressScale = 0.93f;
+    // Pre-computed physics parameters (швидкі, зібрані, без желе-ефекту)
+    private volatile float currentDamping = 12.0f;
+    private volatile float currentFreq = 10.5f;
+    private volatile long currentDuration = 190L;
+    private volatile float currentButtonPressScale = 0.965f;
+    private volatile float currentCardPressScale = 0.985f;
 
     // Cached pre-allocated interpolators
     private volatile Interpolator cachedSpringInterpolator;
     private final Interpolator cachedCompressInterpolator = new StickyCompressInterpolator();
+    private final Interpolator cachedSheetInterpolator = new SmoothSettleInterpolator();
 
     public UiModule() {
         rebuildPhysicsParameters();
@@ -97,11 +107,14 @@ public class UiModule implements HotModule, HotUi {
             host.registerService(HotServices.UI, this);
         } catch (Throwable ignore) {
         }
+        navController = new YumiNavController(this, host);
+        chatRowRenderer = new YumiChatRowRenderer(this, host);
+        screenChrome = new YumiScreenChrome(this, host);
         updateThemeState();
         setupThemeListener();
         setupHooks();
         try {
-            host.log("ui attached with theme-adaptive PixelPlayer spring animations");
+            host.log("ui v1.0.6 attached with MD3 Expressive navigation, chat cards and chrome");
         } catch (Throwable ignore) {
         }
     }
@@ -121,6 +134,21 @@ public class UiModule implements HotModule, HotUi {
             }
         }
         activeHooks.clear();
+        try {
+            if (navController != null) {
+                navController.restore();
+                navController = null;
+            }
+        } catch (Throwable ignore) {
+        }
+        chatRowRenderer = null;
+        try {
+            if (screenChrome != null) {
+                screenChrome.restoreAll();
+                screenChrome = null;
+            }
+        } catch (Throwable ignore) {
+        }
         synchronized (animatedViews) {
             animatedViews.clear();
         }
@@ -199,7 +227,19 @@ public class UiModule implements HotModule, HotUi {
     private void markTouched() {
         writeBool(KEY_TOUCHED, true);
         try {
-            if (host != null) host.emit("ui_changed", "{\"style\":" + styleMode() + ",\"sticky\":" + isStickyEnabled() + "}");
+            if (host != null) {
+                host.emit("ui_changed", "{\"style\":" + styleMode() + ",\"chatStyle\":" + chatListStyle() + ",\"sticky\":" + isStickyEnabled() + "}");
+            }
+        } catch (Throwable ignore) {
+        }
+        try {
+            ClassLoader cl = host != null && host.context() != null ? host.context().getClassLoader() : getClass().getClassLoader();
+            Class<?> ncClass = Class.forName("org.telegram.messenger.NotificationCenter", true, cl);
+            Method mGetGlobal = ncClass.getMethod("getGlobalInstance");
+            Object nc = mGetGlobal.invoke(null);
+            int updateInterfaces = ncClass.getField("updateInterfaces").getInt(null);
+            Method mPost = ncClass.getMethod("postNotificationName", int.class, Object[].class);
+            mPost.invoke(nc, updateInterfaces, new Object[]{127});
         } catch (Throwable ignore) {
         }
     }
@@ -208,6 +248,26 @@ public class UiModule implements HotModule, HotUi {
     public int styleMode() {
         int v = readInt(KEY_STYLE, readInt("style", 1));
         return v == 0 ? 0 : 1;
+    }
+
+    public int chatListStyle() {
+        return readInt(KEY_CHAT_STYLE, CHAT_STYLE_CARDS);
+    }
+
+    public boolean isChatPinnedAccent() {
+        return readBool(KEY_CHAT_PINNED_ACCENT, true);
+    }
+
+    public boolean isChatSquircleAvatars() {
+        return readBool(KEY_CHAT_SQUIRCLE_AVATARS, true);
+    }
+
+    public boolean isChatCardOutline() {
+        return readBool(KEY_CHAT_CARD_OUTLINE, true);
+    }
+
+    public boolean isChatCardsTouch() {
+        return readBool(KEY_CHAT_CARDS_TOUCH, true);
     }
 
     public boolean isStickyEnabled() {
@@ -289,6 +349,16 @@ public class UiModule implements HotModule, HotUi {
             }
 
             rebuildPhysicsParameters();
+            if (navController != null) {
+                navController.refreshPalette(host != null ? host.context() : null);
+            }
+            if (chatRowRenderer != null) {
+                chatRowRenderer.refreshPalette(host != null ? host.context() : null);
+                chatRowRenderer.invalidateAll();
+            }
+            if (screenChrome != null) {
+                screenChrome.refreshPalette(host != null ? host.context() : null);
+            }
             if (host != null) {
                 host.log("ui: theme updated -> dark=" + isThemeDark + ", monet=" + isThemeMonet + ", amoled=" + isThemeAmoled);
             }
@@ -300,50 +370,57 @@ public class UiModule implements HotModule, HotUi {
     private void rebuildPhysicsParameters() {
         if (isThemeAdaptive()) {
             if (isThemeMonet) {
-                // Pixel Material 3 Expressive (чистий стиль PixelPlayer: овершут ~4.7%, 310ms)
-                currentDamping = 8.0f;
-                currentFreq = 8.0f;
-                currentDuration = 310L;
-                currentButtonPressScale = 0.93f;
+                // Pixel Material 3 Expressive (чистий стиль Pixel: овершут ~2.2%, 190ms)
+                currentDamping = 12.0f;
+                currentFreq = 10.5f;
+                currentDuration = 190L;
+                currentButtonPressScale = 0.965f;
+                currentCardPressScale = 0.985f;
             } else if (isThemeAmoled) {
-                // AMOLED Pure Black: ультра-чіткий відгук (270ms, без змазування OLED)
-                currentDamping = 9.5f;
-                currentFreq = 8.5f;
-                currentDuration = 270L;
-                currentButtonPressScale = 0.95f;
+                // AMOLED Pure Black: надчіткий миттєвий відгук (170ms, нуль змазування OLED)
+                currentDamping = 13.5f;
+                currentFreq = 11.0f;
+                currentDuration = 170L;
+                currentButtonPressScale = 0.970f;
+                currentCardPressScale = 0.987f;
             } else if (isThemeDark) {
-                // Темна тема: зібраний, швидкий тактильний відгук (290ms)
-                currentDamping = 8.5f;
-                currentFreq = 8.2f;
-                currentDuration = 290L;
-                currentButtonPressScale = 0.94f;
+                // Темна тема: преміальний швидкий тактильний відгук (180ms)
+                currentDamping = 12.5f;
+                currentFreq = 10.8f;
+                currentDuration = 180L;
+                currentButtonPressScale = 0.965f;
+                currentCardPressScale = 0.985f;
             } else {
-                // Світла тема: плавний, органічний спрінг (330ms, овершут ~5.5%)
-                currentDamping = 7.5f;
-                currentFreq = 8.0f;
-                currentDuration = 330L;
-                currentButtonPressScale = 0.93f;
+                // Світла тема: м'який зібраний спрінг (200ms)
+                currentDamping = 11.5f;
+                currentFreq = 10.0f;
+                currentDuration = 200L;
+                currentButtonPressScale = 0.965f;
+                currentCardPressScale = 0.985f;
             }
         } else {
             switch (stickyStyle()) {
                 case STYLE_SUBTLE:
-                    currentDamping = 10.0f;
-                    currentFreq = 9.0f;
-                    currentDuration = 250L;
-                    currentButtonPressScale = 0.96f;
+                    currentDamping = 14.0f;
+                    currentFreq = 11.5f;
+                    currentDuration = 160L;
+                    currentButtonPressScale = 0.975f;
+                    currentCardPressScale = 0.988f;
                     break;
                 case STYLE_ULTRA_BOUNCY:
-                    currentDamping = 6.5f;
-                    currentFreq = 7.5f;
-                    currentDuration = 380L;
-                    currentButtonPressScale = 0.91f;
+                    currentDamping = 10.5f;
+                    currentFreq = 9.5f;
+                    currentDuration = 230L;
+                    currentButtonPressScale = 0.950f;
+                    currentCardPressScale = 0.980f;
                     break;
                 case STYLE_EXPRESSIVE:
                 default:
-                    currentDamping = 8.0f;
-                    currentFreq = 8.0f;
-                    currentDuration = 310L;
-                    currentButtonPressScale = 0.93f;
+                    currentDamping = 12.0f;
+                    currentFreq = 10.5f;
+                    currentDuration = 190L;
+                    currentButtonPressScale = 0.965f;
+                    currentCardPressScale = 0.985f;
                     break;
             }
         }
@@ -358,17 +435,16 @@ public class UiModule implements HotModule, HotUi {
     }
 
     private String getAdaptiveProfileDescription() {
-        if (isThemeMonet) return "PixelPlayer M3 Expressive (динамічні кольори Monet, 310ms)";
-        if (isThemeAmoled) return "Ультра-чіткий відгук (270ms, без OLED ghosting)";
-        if (isThemeDark) return "Преміальний швидкий відгук (290ms, темна фізика)";
-        return "Органічний текучий спрінг (330ms, тактильний овершут 1.05x)";
+        if (isThemeMonet) return "Pixel M3 Expressive (динамічні кольори Monet, 190ms)";
+        if (isThemeAmoled) return "Ультра-чіткий відгук (170ms, без OLED ghosting)";
+        if (isThemeDark) return "Преміальний швидкий відгук (180ms, темна фізика)";
+        return "Органічний текучий спрінг (200ms, тактильний мікро-овершут)";
     }
 
     // ==================== Optimized Spring Physics ====================
 
     /**
-     * Фізика затухаючого гармонійного осцилятора:
-     * progress(t) = 1 - e^(-damping * t) * (cos(freq * t) + (damping / (2 * freq)) * sin(freq * t))
+     * Фізика затухаючого гармонійного осцилятора (збалансована, без желе-ефекту).
      */
     public static class DampedSpringInterpolator implements Interpolator {
         private final float damping;
@@ -397,38 +473,45 @@ public class UiModule implements HotModule, HotUi {
         }
     }
 
+    /** Плавне доведення для шторок (Quartic Ease-Out — швидкий старт і шовкова зупинка без відскоку). */
+    public static class SmoothSettleInterpolator implements Interpolator {
+        @Override
+        public float getInterpolation(float t) {
+            if (t <= 0f) return 0f;
+            if (t >= 1f) return 1f;
+            float inv = 1f - t;
+            return 1f - inv * inv * inv * inv;
+        }
+    }
+
     /**
      * Перевірка: чи є елемент інтерактивною кнопкою / іконкою / чіпом.
-     * Списки (чати, повідомлення, налаштування) та великі контейнери СУВОРО ігноруються.
+     * Списки (чати, повідомлення, налаштування) та великі контейнери обробляються окремими хуками.
      */
     private static boolean isInteractiveButton(View v) {
         if (v == null) return false;
         try {
-            // Перевірка батьківських контейнерів: ніколи не чіпати елементи списків
             Object parent = v.getParent();
             while (parent instanceof View) {
                 String pName = parent.getClass().getName();
-                if (pName.contains("Recycler") || pName.contains("ListView") || pName.contains("Cell") || pName.contains("Row")) {
+                if (pName.contains("Recycler") || pName.contains("ListView") || pName.contains("Row")) {
                     return false;
                 }
                 parent = ((View) parent).getParent();
             }
 
             String name = v.getClass().getName();
-            // Суворе виключення клітинок, рядків та повнорозмірних контейнерів
             if (name.contains("Cell") || name.contains("Row") || name.contains("Message")
                     || name.contains("Recycler") || name.contains("Activity")
                     || name.contains("Content") || name.contains("Container") || name.contains("Pager")) {
                 return false;
             }
 
-            // Виключення контейнерів на всю ширину екрану
             ViewGroup.LayoutParams lp = v.getLayoutParams();
             if (lp != null && lp.width == ViewGroup.LayoutParams.MATCH_PARENT) {
                 return false;
             }
 
-            // Відомі класи кнопок та інтерактивних елементів
             if (name.contains("Button") || name.contains("Fab") || name.contains("FAB")
                     || name.contains("Chip") || name.contains("MenuItem")
                     || name.contains("PlayPause") || name.contains("GlassTabView")
@@ -436,7 +519,6 @@ public class UiModule implements HotModule, HotUi {
                 return true;
             }
 
-            // Звичайні кнопки та клікабельні іконки
             if (v instanceof android.widget.Button || v instanceof android.widget.ImageButton || v instanceof android.widget.ImageView) {
                 return true;
             }
@@ -446,8 +528,7 @@ public class UiModule implements HotModule, HotUi {
     }
 
     /**
-     * Підключення нативного StateListAnimator до кнопки з пружинною фізикою та тактильністю.
-     * Не підміняє OnTouchListener, не збиває скрол і працює на апаратному прискоренні.
+     * Підключення нативного StateListAnimator до кнопки з точною фізикою та вібровідгуком.
      */
     private void applySpringStateListAnimator(final View v) {
         if (v == null || !isStickyEnabled()) return;
@@ -459,12 +540,12 @@ public class UiModule implements HotModule, HotUi {
         try {
             StateListAnimator sla = new StateListAnimator();
 
-            // 1. Стан натискання (state_pressed): швидке стискання 80ms + чіткий тактильний вібровідгук
+            // 1. Стан натискання (state_pressed): швидке стискання 60ms + тактильний клік
             AnimatorSet pressedSet = new AnimatorSet();
             ObjectAnimator scaleXDown = ObjectAnimator.ofFloat(v, View.SCALE_X, currentButtonPressScale);
             ObjectAnimator scaleYDown = ObjectAnimator.ofFloat(v, View.SCALE_Y, currentButtonPressScale);
             pressedSet.playTogether(scaleXDown, scaleYDown);
-            pressedSet.setDuration(80L);
+            pressedSet.setDuration(60L);
             pressedSet.setInterpolator(cachedCompressInterpolator);
             pressedSet.addListener(new AnimatorListenerAdapter() {
                 @Override
@@ -476,7 +557,7 @@ public class UiModule implements HotModule, HotUi {
                 }
             });
 
-            // 2. Стан відпускання: пружинне повернення з природним овершутом
+            // 2. Стан відпускання: природне пружинне повернення (190ms)
             AnimatorSet releaseSet = new AnimatorSet();
             ObjectAnimator scaleXUp = ObjectAnimator.ofFloat(v, View.SCALE_X, 1f);
             ObjectAnimator scaleYUp = ObjectAnimator.ofFloat(v, View.SCALE_Y, 1f);
@@ -496,13 +577,100 @@ public class UiModule implements HotModule, HotUi {
         }
     }
 
+    /**
+     * Тактильний відгук для карток чатів (DialogCell): м'яке вдавлювання на 0.985x при тапі.
+     */
+    private void handleCardTouch(final View view, MotionEvent ev) {
+        if (view == null) return;
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(currentCardPressScale)
+                    .scaleY(currentCardPressScale)
+                    .setDuration(60L)
+                    .setInterpolator(cachedCompressInterpolator)
+                    .start();
+            try {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            } catch (Throwable ignore) {
+            }
+        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(currentDuration)
+                    .setInterpolator(cachedSpringInterpolator != null ? cachedSpringInterpolator : new DampedSpringInterpolator(currentDamping, currentFreq))
+                    .start();
+        }
+    }
+
+    /**
+     * Прямий відгук для іконок тулбара (ActionBarMenuItem): гарантована анімація вже на першому тапі.
+     */
+    private void handleMenuItemTouch(final View view, MotionEvent ev) {
+        if (view == null) return;
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(currentButtonPressScale)
+                    .scaleY(currentButtonPressScale)
+                    .setDuration(55L)
+                    .setInterpolator(cachedCompressInterpolator)
+                    .start();
+            try {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            } catch (Throwable ignore) {
+            }
+        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(currentDuration)
+                    .setInterpolator(cachedSpringInterpolator != null ? cachedSpringInterpolator : new DampedSpringInterpolator(currentDamping, currentFreq))
+                    .start();
+        }
+    }
+
+    /**
+     * Тактильний відгук для нижніх табів (GlassTabView).
+     */
+    private void handleTabTouch(final View view, MotionEvent ev) {
+        if (view == null) return;
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(0.95f)
+                    .scaleY(0.95f)
+                    .setDuration(55L)
+                    .setInterpolator(cachedCompressInterpolator)
+                    .start();
+            try {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            } catch (Throwable ignore) {
+            }
+        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            view.animate().cancel();
+            view.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(currentDuration)
+                    .setInterpolator(cachedSpringInterpolator != null ? cachedSpringInterpolator : new DampedSpringInterpolator(currentDamping, currentFreq))
+                    .start();
+        }
+    }
+
     // ==================== Dynamic ART Hooks ====================
 
     private void setupHooks() {
         if (host == null) return;
         ClassLoader cl = host.context() != null ? host.context().getClassLoader() : getClass().getClassLoader();
 
-        // 1. View.setOnClickListener: пружинний відгук для кнопок, FAB, чіпів та іконок
+        // 1. View.setOnClickListener: пружинний відгук для кнопок, FAB та іконок
         try {
             Method m = View.class.getDeclaredMethod("setOnClickListener", View.OnClickListener.class);
             HotHook.Unhook u = host.hook(m, new HotHook.Callback() {
@@ -526,7 +694,28 @@ public class UiModule implements HotModule, HotUi {
             host.log("ui: hook View.setOnClickListener failed: " + t.getMessage());
         }
 
-        // 2. BottomSheet: плавний пружинний інтерполятор появи шторок
+        // 2. DialogCell.onTouchEvent: тактильне вдавлювання карток чатів (0.985x)
+        try {
+            Class<?> cellClass = Class.forName("org.telegram.ui.Cells.DialogCell", true, cl);
+            Method mTouch = cellClass.getDeclaredMethod("onTouchEvent", MotionEvent.class);
+            HotHook.Unhook u = host.hook(mTouch, new HotHook.Callback() {
+                @Override
+                public void before(HotHook.Call call) throws Throwable {
+                    if (!isStickyEnabled() || !isChatCardsTouch() || chatListStyle() == CHAT_STYLE_FLAT) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0 && args[0] instanceof MotionEvent) {
+                        handleCardTouch((View) target, (MotionEvent) args[0]);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked DialogCell.onTouchEvent for card press physics");
+        } catch (Throwable t) {
+            host.log("ui: hook DialogCell.onTouchEvent failed: " + t.getMessage());
+        }
+
+        // 3. BottomSheet: шовкове плавне відкриття шторок без батутного дрижання
         try {
             final Class<?> bsClass = Class.forName("org.telegram.ui.ActionBar.BottomSheet", true, cl);
             List<HotHook.Unhook> sheetHooks = host.hookAll(bsClass, "show", new HotHook.Callback() {
@@ -537,21 +726,19 @@ public class UiModule implements HotModule, HotUi {
                     if (sheet != null) {
                         try {
                             Field f = bsClass.getField("openInterpolator");
-                            Interpolator interp = cachedSpringInterpolator;
-                            if (interp == null) interp = new DampedSpringInterpolator(currentDamping, currentFreq);
-                            f.set(sheet, interp);
+                            f.set(sheet, cachedSheetInterpolator);
                         } catch (Throwable ignore) {
                         }
                     }
                 }
             });
             if (sheetHooks != null) activeHooks.addAll(sheetHooks);
-            host.log("ui: hooked BottomSheet.show for spring sheet entrance");
+            host.log("ui: hooked BottomSheet.show for smooth settle entrance");
         } catch (Throwable t) {
             host.log("ui: hook BottomSheet failed: " + t.getMessage());
         }
 
-        // 3. ActionBarMenuItem: пружинний відгук для іконок верхнього тулбара (пошук, назад, три крапки)
+        // 4. ActionBarMenuItem.onTouchEvent: реактивний мікровідгук тулбара з першого тапу
         try {
             Class<?> itemClass = Class.forName("org.telegram.ui.ActionBar.ActionBarMenuItem", true, cl);
             Method m = itemClass.getDeclaredMethod("onTouchEvent", MotionEvent.class);
@@ -560,8 +747,9 @@ public class UiModule implements HotModule, HotUi {
                 public void before(HotHook.Call call) throws Throwable {
                     if (!isStickyEnabled()) return;
                     Object target = call.getThis();
-                    if (target instanceof View) {
-                        applySpringStateListAnimator((View) target);
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0 && args[0] instanceof MotionEvent) {
+                        handleMenuItemTouch((View) target, (MotionEvent) args[0]);
                     }
                 }
             });
@@ -569,6 +757,254 @@ public class UiModule implements HotModule, HotUi {
             host.log("ui: hooked ActionBarMenuItem.onTouchEvent");
         } catch (Throwable t) {
             host.log("ui: hook ActionBarMenuItem failed: " + t.getMessage());
+        }
+
+        // 5. GlassTabView.onTouchEvent: пружинний відгук для нижніх табів
+        try {
+            Class<?> tabClass = Class.forName("org.telegram.ui.Components.glass.GlassTabView", true, cl);
+            Method m = tabClass.getDeclaredMethod("onTouchEvent", MotionEvent.class);
+            HotHook.Unhook u = host.hook(m, new HotHook.Callback() {
+                @Override
+                public void before(HotHook.Call call) throws Throwable {
+                    if (!isStickyEnabled()) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0 && args[0] instanceof MotionEvent) {
+                        handleTabTouch((View) target, (MotionEvent) args[0]);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked GlassTabView.onTouchEvent");
+        } catch (Throwable t) {
+            host.log("ui: hook GlassTabView failed: " + t.getMessage());
+        }
+
+        // 6. Main navigation is rendered by the module. The client activity is
+        // untouched; we only install the Yumi visual layer after it creates its
+        // normal tabs. Touch, long-press and tab selection remain native.
+        try {
+            final Class<?> mainTabs = Class.forName("org.telegram.ui.MainTabsActivity", true, cl);
+            final Method createView = mainTabs.getMethod("createView", Context.class);
+            final HotHook.Unhook u = host.hook(createView, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    navController.apply(call.getThis());
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked MainTabsActivity.createView for module navigation");
+        } catch (Throwable t) {
+            host.log("ui: hook MainTabsActivity failed: " + t.getMessage());
+        }
+
+        try {
+            final Class<?> tabClass = Class.forName("org.telegram.ui.Components.glass.GlassTabView", true, cl);
+            final Method setCounter = tabClass.getDeclaredMethod("setCounter", String.class, boolean.class, boolean.class);
+            HotHook.Unhook u = host.hook(setCounter, new HotHook.Callback() {
+                @Override
+                public void before(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length >= 2) {
+                        navController.onCounter((View) target,
+                                args[0] instanceof String ? (String) args[0] : null,
+                                args[1] instanceof Boolean && (Boolean) args[1]);
+                        call.setResult(null);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked GlassTabView.setCounter");
+
+            final Method setSelected = tabClass.getDeclaredMethod("setSelected", boolean.class, boolean.class);
+            u = host.hook(setSelected, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0) {
+                        navController.onSelected((View) target, args[0] instanceof Boolean && (Boolean) args[0]);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method setText = tabClass.getDeclaredMethod("setText", CharSequence.class);
+            u = host.hook(setText, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0) {
+                        navController.onText((View) target, (CharSequence) args[0]);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method updateAvatar = tabClass.getDeclaredMethod("updateUserAvatar", int.class);
+            u = host.hook(updateAvatar, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        navController.onAvatar((View) target);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method onLayout = tabClass.getDeclaredMethod("onLayout",
+                    boolean.class, int.class, int.class, int.class, int.class);
+            u = host.hook(onLayout, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (navController == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        navController.onLayout((View) target);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method updateColors = tabClass.getDeclaredMethod("updateColorsLottie");
+            u = host.hook(updateColors, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || navController == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        navController.onColors((View) target);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked GlassTabView visual state for module navigation");
+        } catch (Throwable t) {
+            host.log("ui: hook GlassTabView visual state failed: " + t.getMessage());
+        }
+
+        // 7. Yumi chat-list row renderer. The official DialogCell keeps its
+        // adapter, gestures, swipe, stories and action mode; the module paints
+        // the Yumi card after the cell's own onDraw.
+        try {
+            final Class<?> dialogCell = Class.forName("org.telegram.ui.Cells.DialogCell", true, cl);
+            final Method onDraw = dialogCell.getDeclaredMethod("onDraw", android.graphics.Canvas.class);
+            HotHook.Unhook u = host.hook(onDraw, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (chatRowRenderer == null) return;
+                    Object target = call.getThis();
+                    Object[] args = call.getArgs();
+                    if (target instanceof View && args != null && args.length > 0
+                            && args[0] instanceof android.graphics.Canvas) {
+                        chatRowRenderer.draw((View) target, (android.graphics.Canvas) args[0]);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method update = dialogCell.getDeclaredMethod("update", int.class, boolean.class);
+            u = host.hook(update, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (chatRowRenderer == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        chatRowRenderer.bind((View) target);
+                        ((View) target).invalidate();
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked DialogCell.onDraw/update for module chat cards");
+
+            for (Method method : dialogCell.getDeclaredMethods()) {
+                final String name = method.getName();
+                if (!"setDialog".equals(name) && !"setDialogSelected".equals(name)) continue;
+                final HotHook.Unhook setDialogHook = host.hook(method, new HotHook.Callback() {
+                    @Override
+                    public void after(HotHook.Call call) throws Throwable {
+                        if (chatRowRenderer == null) return;
+                        Object target = call.getThis();
+                        if (target instanceof View) {
+                            chatRowRenderer.bind((View) target);
+                            ((View) target).invalidate();
+                        }
+                    }
+                });
+                if (setDialogHook != null) activeHooks.add(setDialogHook);
+            }
+        } catch (Throwable t) {
+            host.log("ui: hook DialogCell failed: " + t.getMessage());
+        }
+
+        // 8. Module-owned chrome for official list screens. The fragments and
+        // adapters are untouched; a Yumi top bar / search field is inserted and
+        // the original ActionBar stays measured but invisible.
+        try {
+            hookScreen("org.telegram.ui.ContactsActivity", cl, YumiScreenChrome.KIND_CONTACTS);
+            hookScreen("org.telegram.ui.CallLogActivity", cl, YumiScreenChrome.KIND_CALLS);
+            hookScreen("org.telegram.ui.FiltersSetupActivity", cl, YumiScreenChrome.KIND_FOLDERS);
+
+            final Class<?> actionBar = Class.forName("org.telegram.ui.ActionBar.ActionBar", true, cl);
+            final Method showActionMode = actionBar.getDeclaredMethod("showActionMode",
+                    boolean.class, View.class, View.class, View[].class, boolean[].class, View.class, int.class);
+            HotHook.Unhook u = host.hook(showActionMode, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (screenChrome == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        screenChrome.onActionMode((View) target, true);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+
+            final Method hideActionMode = actionBar.getDeclaredMethod("hideActionMode");
+            u = host.hook(hideActionMode, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (screenChrome == null) return;
+                    Object target = call.getThis();
+                    if (target instanceof View) {
+                        screenChrome.onActionMode((View) target, false);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked Contacts/Calls/Folders chrome + ActionBar mode");
+        } catch (Throwable t) {
+            host.log("ui: hook list screen chrome failed: " + t.getMessage());
+        }
+    }
+
+    private void hookScreen(String className, ClassLoader cl, final String kind) {
+        try {
+            final Class<?> cls = Class.forName(className, true, cl);
+            final Method createView = cls.getMethod("createView", Context.class);
+            final HotHook.Unhook u = host.hook(createView, new HotHook.Callback() {
+                @Override
+                public void after(HotHook.Call call) throws Throwable {
+                    if (!isExpressive() || screenChrome == null) return;
+                    Object[] args = call.getArgs();
+                    if (args != null && args.length > 0 && args[0] instanceof Context) {
+                        screenChrome.apply(call.getThis(), (Context) args[0], kind);
+                    }
+                }
+            });
+            if (u != null) activeHooks.add(u);
+            host.log("ui: hooked " + className + ".createView (" + kind + ")");
+        } catch (Throwable t) {
+            host.log("ui: hook " + className + " failed: " + t.getMessage());
         }
     }
 
@@ -588,7 +1024,31 @@ public class UiModule implements HotModule, HotUi {
                 "Зберігає та насичує рожеві, темні та будь-які кастомні тони теми замість сірого",
                 readBool("theme_tonal_adaptation", true)));
 
-        rows.add(HotRow.header("Пружинна тактильність (PixelPlayer)"));
+        rows.add(HotRow.header("Список чатів Yumi"));
+        int cStyle = chatListStyle();
+        String cStyleName = cStyle == CHAT_STYLE_CARDS ? "Виразні плаваючі картки (M3)"
+                : (cStyle == CHAT_STYLE_ISLANDS ? "Сегментовані острівці" : "Сучасний плаский");
+        rows.add(HotRow.button("cycle_chat_style",
+                "Стиль списку: " + cStyleName,
+                "Натисніть для перемикання (Картки → Острівці → Плаский)"));
+        rows.add(HotRow.switchRow(KEY_CHAT_CARDS_TOUCH,
+                "Тактильність карток чатів",
+                "М'яке пружинне притискання (0.985x) при натисканні на діалог",
+                isChatCardsTouch()));
+        rows.add(HotRow.switchRow(KEY_CHAT_PINNED_ACCENT,
+                "Тональні закріплені чати",
+                "М'яке підсвічування закріплених чатів акцентним відтінком теми",
+                isChatPinnedAccent()));
+        rows.add(HotRow.switchRow(KEY_CHAT_SQUIRCLE_AVATARS,
+                "Squircle-аватарки (PixelPlayer)",
+                "Виразне скруглення аватарок чатів у стилі Material You",
+                isChatSquircleAvatars()));
+        rows.add(HotRow.switchRow(KEY_CHAT_CARD_OUTLINE,
+                "Мікро-контур карток (M3)",
+                "Тонка адаптивна обводка карток для ефекту глибини",
+                isChatCardOutline()));
+
+        rows.add(HotRow.header("Пружинна тактильність (Pixel M3)"));
         rows.add(HotRow.switchRow(KEY_STICKY_ENABLED,
                 "Липкі анімації та вібровідгук",
                 "Пружинна фізика кнопок, шторок і меню з адаптацією під тему",
@@ -626,27 +1086,51 @@ public class UiModule implements HotModule, HotUi {
             writeInt(KEY_STYLE, value ? 1 : 0);
             writeInt("style", value ? 1 : 0);
             markTouched();
+            if (navController != null) navController.refresh();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+            if (screenChrome != null && !isExpressive()) screenChrome.restoreAll();
             return;
         }
         writeBool(key, value);
         markTouched();
+        if (key != null && (key.startsWith("chat_") || key.startsWith("theme_"))) {
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+        }
     }
 
     @Override
     public void onSettingsAction(String rowId) {
-        if ("apply_live".equals(rowId) || "go_expressive".equals(rowId)) {
+        if ("cycle_chat_style".equals(rowId)) {
+            int next = (chatListStyle() + 1) % 3;
+            writeInt(KEY_CHAT_STYLE, next);
+            markTouched();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+            String name = next == CHAT_STYLE_CARDS ? "Виразні плаваючі картки"
+                    : (next == CHAT_STYLE_ISLANDS ? "Сегментовані острівці" : "Сучасний плаский");
+            if (host != null) host.toast("Стиль списку: " + name);
+        } else if ("apply_live".equals(rowId) || "go_expressive".equals(rowId)) {
             writeInt(KEY_STYLE, 1);
             writeInt("style", 1);
             markTouched();
+            if (navController != null) navController.refresh();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
             if (host != null) host.toast("Інтерфейс Yumi оновлено");
         } else if ("go_classic".equals(rowId)) {
             writeInt(KEY_STYLE, 0);
             writeInt("style", 0);
             markTouched();
+            if (navController != null) navController.refresh();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+            if (screenChrome != null) screenChrome.restoreAll();
             if (host != null) host.toast("Yougram Classic застосовано");
         } else if ("reset_defaults".equals(rowId)) {
             writeInt(KEY_STYLE, 1);
             writeInt("style", 1);
+            writeInt(KEY_CHAT_STYLE, CHAT_STYLE_CARDS);
+            writeBool(KEY_CHAT_CARDS_TOUCH, true);
+            writeBool(KEY_CHAT_PINNED_ACCENT, true);
+            writeBool(KEY_CHAT_SQUIRCLE_AVATARS, true);
+            writeBool(KEY_CHAT_CARD_OUTLINE, true);
             writeBool(KEY_STICKY_ENABLED, true);
             writeBool(KEY_STICKY_THEME_ADAPTIVE, true);
             writeBool(KEY_MINI_PLAYER, true);
@@ -654,6 +1138,8 @@ public class UiModule implements HotModule, HotUi {
             writeBool(KEY_LOADING, true);
             writeBool("theme_tonal_adaptation", true);
             markTouched();
+            if (navController != null) navController.refresh();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
             if (host != null) host.toast("Налаштування скинуто до рекомендованих");
         }
     }
