@@ -773,32 +773,6 @@ public class UiModule implements HotModule, HotUi {
             });
             if (u != null) activeHooks.add(u);
 
-            final Method onLayout = tabClass.getDeclaredMethod("onLayout",
-                    boolean.class, int.class, int.class, int.class, int.class);
-            u = host.hook(onLayout, new HotHook.Callback() {
-                @Override
-                public void after(HotHook.Call call) throws Throwable {
-                    if (navController == null) return;
-                    Object target = call.getThis();
-                    if (target instanceof View) {
-                        navController.onLayout((View) target);
-                    }
-                }
-            });
-            if (u != null) activeHooks.add(u);
-
-            final Method updateColors = tabClass.getDeclaredMethod("updateColorsLottie");
-            u = host.hook(updateColors, new HotHook.Callback() {
-                @Override
-                public void after(HotHook.Call call) throws Throwable {
-                    if (!isExpressive() || navController == null) return;
-                    Object target = call.getThis();
-                    if (target instanceof View) {
-                        navController.onColors((View) target);
-                    }
-                }
-            });
-            if (u != null) activeHooks.add(u);
             host.log("ui: hooked GlassTabView visual state for module navigation");
         } catch (Throwable t) {
             host.log("ui: hook GlassTabView visual state failed: " + t.getMessage());
