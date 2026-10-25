@@ -47,7 +47,7 @@ final class YumiNavItem extends FrameLayout {
         super(context);
         this.palette = palette;
         this.avatarMode = avatarMode;
-        setWillNotDraw(true);
+        setWillNotDraw(false);
         setClipChildren(false);
         setClipToPadding(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -197,17 +197,6 @@ final class YumiNavItem extends FrameLayout {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (selected) {
-            final int rowWidth = row.getMeasuredWidth();
-            final float pillWidth = Math.min(getWidth() - dp(4), rowWidth + dp(20));
-            final float pillHeight = dp(40);
-            final float cx = getWidth() / 2f;
-            final float cy = getHeight() / 2f;
-            pillRect.set(cx - pillWidth / 2f, cy - pillHeight / 2f,
-                    cx + pillWidth / 2f, cy + pillHeight / 2f);
-            pillPaint.setColor(palette.navIndicator);
-            canvas.drawRoundRect(pillRect, pillHeight / 2f, pillHeight / 2f, pillPaint);
-        }
         super.onDraw(canvas);
     }
 
