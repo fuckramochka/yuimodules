@@ -286,10 +286,23 @@
     {
       "id": "ui",
       "name": "Інтерфейс Yumi",
-      "description": "Автентичний Google Material Design 3 (Pixel / Android 14/15): чистий інтерфейс, стильна навігація M3 та тональні кольори.",
+      "description": "Автентичний Google Material Design 3 (Pixel / Android 14/15): надзвичайно плавний та оптимізований інтерфейс, стильна навігація M3 та тональні кольори без лагів.",
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.8",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.8.hmod",
+          "sha256": "af92aa441aa0987434d1a4aa571c9c28ea9c19349252508fac03cca395dd63eb",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.8: глибока оптимізація швидкодії та усунення лагів — усунуто важкі хуки, чисте апаратне прискорення 120fps.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 31235
+        }
+      },
+      "history": [
+        {
           "version": "1.0.7",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.7.hmod",
           "sha256": "1a77f0baea47418aaaba2a5c0a0c93812a5f5e98c89f21305ab0073b43a8dcdb",
@@ -299,9 +312,7 @@
             "hook_ui"
           ],
           "sizeBytes": 33014
-        }
-      },
-      "history": [
+        },
         {
           "branch": "stable",
           "version": "1.0.6",
