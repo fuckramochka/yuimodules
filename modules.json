@@ -290,18 +290,30 @@
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.9",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.9.hmod",
+          "sha256": "16171480a85d7bef4ec8e264900ca2b3effd9c312b3cfd873491de8470e9a261",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.9: усунено лаги нижньої панелі та списків — прибрано хуки onLayout, кешовано стан вкладок, нульовий оверхед на 120fps.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 31558
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.8",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.8.hmod",
           "sha256": "85c25c840d39ae5d25a1a4b60abfdf0f4d1a5e0838d3db66abe008f0970e0190",
+          "sizeBytes": 31755,
           "minApp": 7112,
           "changelog": "Версія 1.0.8: глибока оптимізація швидкодії та усунення лагів — усунуто важкі хуки, чисте апаратне прискорення 120fps.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 31755
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "version": "1.0.7",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.7.hmod",
@@ -409,18 +421,30 @@
       "entry": "com.amegram.mods.settings.SettingsUiModule",
       "branches": {
         "stable": {
+          "version": "1.0.2",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/settings_ui-1.0.2.hmod",
+          "sha256": "910661a2764b16b8f9a8850306fba90679684c9682647115650cf6bc7071dbc4",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.2: чистий інтерфейс налаштувань без дублікатів та зайвих перемикачів.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 4959
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.1",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/settings_ui-1.0.1.hmod",
           "sha256": "f3dd9f1e5ab2334dadb67214fea61b737701332e50618f3d73e6b9ac6f5b3979",
+          "sizeBytes": 6430,
           "minApp": 7112,
           "changelog": "Повноцінне керування Hero-банером, швидкими перемикачами, мінімалістичним режимом та інтерактивними діями підвалу.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 6430
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.0",
