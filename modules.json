@@ -484,20 +484,34 @@
       "system": true,
       "branches": {
         "stable": {
+          "version": "1.0.3",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/badges-1.0.3.hmod",
+          "sha256": "ba358b668f2f0f1e7728ded333a48cd88f3545b3ef0f93b29a7bfa660c6f78c6",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.3: синхронізація в реальному часі з сервером на ноутбуці, розсилка updateInterfaces для миттєвого оновлення профілю.",
+          "permissions": [
+            "hook_ui",
+            "network",
+            "storage"
+          ],
+          "sizeBytes": 9448
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.2",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/badges-1.0.2.hmod",
           "sha256": "c2d2955bdbddbbc109e47d4e6f797f44e20d295f04790405358e63e288f18ec5",
+          "sizeBytes": 9257,
           "minApp": 7112,
           "changelog": "Версія 1.0.2: миттєве застосування обраного стилю стрілочки, бренд Miyumi ໒꒱ та виправлення мульти-вибору у панелі видачі.",
           "permissions": [
             "hook_ui",
             "network",
             "storage"
-          ],
-          "sizeBytes": 9257
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.1",
