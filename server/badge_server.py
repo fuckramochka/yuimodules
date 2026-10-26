@@ -96,7 +96,7 @@ def get_html_dashboard():
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ноутбук-сервер бейджів ໒꒱ Yumigram</title>
+    <title>Ноутбук-сервер бейджів ໒꒱ Miyumi</title>
     <style>
         :root {{
             --bg: #0F1117;
@@ -142,8 +142,8 @@ def get_html_dashboard():
     <div class="container">
         <header>
             <div>
-                <h1>Ноутбук-сервер бейджів ໒꒱</h1>
-                <p style="color: var(--text-sub); font-size: 13px; margin-top: 4px;">Первинний локальний бекенд з автоматичним фолбеком на GitHub</p>
+                <h1>Ноутбук-сервер бейджів ໒꒱ Miyumi</h1>
+                <p style="color: var(--text-sub); font-size: 13px; margin-top: 4px;">Первинний локальний бекенд екосистеми Miyumi з авто-фолбеком на GitHub</p>
             </div>
             <div class="status-pill">
                 <div class="status-dot"></div> Ноутбук онлайн
