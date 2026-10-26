@@ -292,13 +292,13 @@
         "stable": {
           "version": "1.0.9",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.9.hmod",
-          "sha256": "16171480a85d7bef4ec8e264900ca2b3effd9c312b3cfd873491de8470e9a261",
+          "sha256": "f15629c5e0b3e0882d31d1bb216d9bf56ebdf518749cf39d39d89a6e5b9e3abf",
           "minApp": 7112,
           "changelog": "Версія 1.0.9: усунено лаги нижньої панелі та списків — прибрано хуки onLayout, кешовано стан вкладок, нульовий оверхед на 120fps.",
           "permissions": [
             "hook_ui"
           ],
-          "sizeBytes": 31558
+          "sizeBytes": 31681
         }
       },
       "history": [
