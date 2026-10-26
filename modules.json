@@ -484,20 +484,34 @@
       "system": true,
       "branches": {
         "stable": {
+          "version": "1.0.4",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/badges-1.0.4.hmod",
+          "sha256": "2a7bb8ef5fed62cbeb7afe1835f5d6cc3e468456b952253092807537a88b7fa8",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.4: підтримка Cloudflare Tunnel для віддаленого підключення без білого IP, DEVIL за замовчуванням у badges.json.",
+          "permissions": [
+            "hook_ui",
+            "network",
+            "storage"
+          ],
+          "sizeBytes": 9517
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.3",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/badges-1.0.3.hmod",
           "sha256": "ba358b668f2f0f1e7728ded333a48cd88f3545b3ef0f93b29a7bfa660c6f78c6",
+          "sizeBytes": 9448,
           "minApp": 7112,
           "changelog": "Версія 1.0.3: синхронізація в реальному часі з сервером на ноутбуці, розсилка updateInterfaces для миттєвого оновлення профілю.",
           "permissions": [
             "hook_ui",
             "network",
             "storage"
-          ],
-          "sizeBytes": 9448
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.2",
