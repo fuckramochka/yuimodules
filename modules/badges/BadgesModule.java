@@ -460,7 +460,7 @@ public class BadgesModule implements HotModule, HotBadges {
                 badgeCache.clear();
                 badgeCache.put(FOUNDER_USER_ID, new BadgeItem(
                         FOUNDER_USER_ID,
-                        MiogramBadgeType.ORIGINAL,
+                        MiogramBadgeType.DEVIL,
                         null,
                         "Засновник & Архітектор Miyumi ໒꒱",
                         "Особиста відзнака засновника та головного архітектора спільноти Miyumi (@fuckramochka).",
@@ -473,7 +473,7 @@ public class BadgesModule implements HotModule, HotBadges {
                     long uid = obj.optLong("user_id");
                     if (uid <= 0) continue;
 
-                    String typeStr = obj.optString("type", "original");
+                    String typeStr = obj.optString("type", "devil");
                     MiogramBadgeType type = MiogramBadgeType.fromId(typeStr);
                     String svg = obj.optString("custom_svg", null);
                     String title = obj.optString("title", null);
@@ -482,6 +482,9 @@ public class BadgesModule implements HotModule, HotBadges {
                     boolean verified = obj.optBoolean("verified", uid == FOUNDER_USER_ID);
 
                     badgeCache.put(uid, new BadgeItem(uid, type, svg, title, lore, date, verified));
+                    try {
+                        MiogramSupabaseBridge.setCloudBadgeRecord(uid, type, title, lore, date, verified);
+                    } catch (Throwable ignored) {}
                 }
             }
         } catch (Throwable e) {
