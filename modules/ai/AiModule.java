@@ -72,10 +72,6 @@ public class AiModule implements HotModule, HotAiText {
             return;
         }
         try {
-            if ("nano".equals(provider(h))) {
-                callback.onError("Nano-режим: дочекайся завантаження on-device моделі");
-                return;
-            }
             String text = AiClient.generate(h.getString("gemini_key", ""),
                     "gemini-3.5-flash-lite",
                     systemPrompt != null ? systemPrompt : persona(), userText);
@@ -96,8 +92,7 @@ public class AiModule implements HotModule, HotAiText {
     }
 
     public static String provider(HotHost h) {
-        String p = h != null ? h.getString("provider", "api") : "api";
-        return "nano".equals(p) ? "nano" : "api";
+        return "api";
     }
 
     public static String personaName(HotHost h) {
@@ -108,7 +103,6 @@ public class AiModule implements HotModule, HotAiText {
     @Override
     public void fillSettings(List<HotRow> rows) {
         HotHost h = host;
-        String prov = provider(h);
 
         rows.add(HotRow.header("Telegram AI без Premium"));
         boolean replaceEd = h == null || h.getBool("replace_editor", true);
@@ -119,22 +113,12 @@ public class AiModule implements HotModule, HotAiText {
         rows.add(HotRow.switchRow("replace_summaries", "Переказ повідомлень (Summaries)",
                 "Швидкий переказ довгих публікацій у каналах без Premium", replaceSum));
 
-        rows.add(HotRow.header("Провайдер: тільки Nano або Gemini API"));
-        rows.add(HotRow.button("provider", "Провайдер: " + ("nano".equals(prov) ? "Gemini Nano (на пристрої)" : "Gemini API (3.5 Flash-Lite)"),
-                "nano".equals(prov) ? "Локально, без ключа. Качає Nano + STT-модель." : "Хмара Google. Потрібен ключ AI Studio."));
-
-        if ("nano".equals(prov)) {
-            rows.add(HotRow.info("Nano працює офлайн. При першому запуску докачається Nano-модель"
-                    + " і модель розшифровки голосу (якщо чип не тягне STT). Ключ не потрібен."));
-            rows.add(HotRow.button("download_nano", "Завантажити моделі Nano",
-                    "Nano + голосова модель за потреби"));
-        } else {
-            rows.add(HotRow.inputRow("gemini_key", "API-ключ Gemini",
-                    h != null ? h.getString("gemini_key", "") : ""));
-            rows.add(HotRow.button("get_key", "Отримати ключ",
-                    "Відкриє AI Studio (aistudio.google.com)"));
-            rows.add(HotRow.info("Модель фіксована: gemini-3.5-flash-lite. Тільки Gemini API, без сторонніх."));
-        }
+        rows.add(HotRow.header("Провайдер ШІ"));
+        rows.add(HotRow.inputRow("gemini_key", "API-ключ Gemini",
+                h != null ? h.getString("gemini_key", "") : ""));
+        rows.add(HotRow.button("get_key", "Отримати безкоштовний ключ",
+                "Відкриє Google AI Studio (aistudio.google.com)"));
+        rows.add(HotRow.info("Модель: Gemini 3.5 Flash-Lite (0 МБ на пристрої, відповіді < 0.3с, високі ліміти)."));
 
         rows.add(HotRow.header("Персона супутника"));
         rows.add(HotRow.button("persona", "Персона: " + personaName(h),
@@ -169,19 +153,9 @@ public class AiModule implements HotModule, HotAiText {
                 ctx.startActivity(it);
             } catch (Throwable ignore) {
             }
-        } else if ("provider".equals(rowId)) {
-            cycleProvider();
         } else if ("persona".equals(rowId)) {
             host.setBool("persona_kangel", !"KAngel".equals(personaName(host)));
-        } else if ("download_nano".equals(rowId)) {
-            host.toast("Nano-моделі докачаються при першому запуску Nano-режиму (потрібен перезапуск чату)");
         }
-    }
-
-    private void cycleProvider() {
-        if (host == null) return;
-        String cur = provider(host);
-        host.setString("provider", "nano".equals(cur) ? "api" : "nano");
     }
 
     @Override
