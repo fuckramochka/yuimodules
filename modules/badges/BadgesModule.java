@@ -38,6 +38,7 @@ import app.miogram.bridge.MiogramLocale;
 import app.miogram.bridge.badge.MiogramArrowDrawable;
 import app.miogram.bridge.badge.MiogramBadgeBottomSheet;
 import app.miogram.bridge.badge.MiogramBadgeType;
+import app.miogram.bridge.badge.MiogramSupabaseBridge;
 
 /**
  * Системний гарячий модуль бейджів та статусів спільноти (Гібридне подвійне джерело):
@@ -195,7 +196,14 @@ public class BadgesModule implements HotModule, HotBadges {
             item = badgeCache.get(userId);
         }
 
-        MiogramBadgeType type = item != null ? item.type : MiogramBadgeType.ORIGINAL;
+        MiogramBadgeType localType = null;
+        try {
+            localType = MiogramSupabaseBridge.getExplicitSelectedBadge(ApplicationLoader.applicationContext, userId);
+        } catch (Throwable ignored) {}
+
+        if (localType != null) {
+            return new MiogramArrowDrawable(sizeDp, localType);
+        }
 
         if (item != null && !TextUtils.isEmpty(item.customSvg)) {
             Drawable cachedSvg;
@@ -214,23 +222,33 @@ public class BadgesModule implements HotModule, HotBadges {
             }
         }
 
+        MiogramBadgeType type = item != null ? item.type : MiogramBadgeType.ORIGINAL;
         return new MiogramArrowDrawable(sizeDp, type);
     }
 
     @Override
     public String getBadgeTitle(long userId) {
+        MiogramBadgeType localType = null;
+        try {
+            localType = MiogramSupabaseBridge.getExplicitSelectedBadge(ApplicationLoader.applicationContext, userId);
+        } catch (Throwable ignored) {}
+
         BadgeItem item;
         synchronized (badgeCache) {
             item = badgeCache.get(userId);
         }
         if (item != null && !TextUtils.isEmpty(item.title)) {
+            if (localType != null) {
+                return item.title + " (" + localType.getTitle() + ")";
+            }
             return item.title;
         }
         if (userId == FOUNDER_USER_ID) {
-            return MiogramLocale.get("Засновник & Архітектор Miogram ໒꒱", "Создатель и Архитектор Miogram ໒꒱", "Miogram Founder & Architect ໒꒱");
+            String badgeName = localType != null ? (" (" + localType.getTitle() + ")") : "";
+            return MiogramLocale.get("Засновник & Архітектор Miyumi ໒꒱", "Создатель и Архитектор Miyumi ໒꒱", "Miyumi Founder & Architect ໒꒱") + badgeName;
         }
-        MiogramBadgeType type = item != null ? item.type : MiogramBadgeType.ORIGINAL;
-        return MiogramLocale.get("Користувач Miogram", "Пользователь Miogram", "Miogram Community") + " (" + type.getCode() + ")";
+        MiogramBadgeType type = localType != null ? localType : (item != null ? item.type : MiogramBadgeType.ORIGINAL);
+        return MiogramLocale.get("Спільнота Miyumi ໒꒱", "Сообщество Miyumi ໒꒱", "Miyumi Community ໒꒱") + " (" + type.getCode() + ")";
     }
 
     @Override
@@ -388,8 +406,8 @@ public class BadgesModule implements HotModule, HotBadges {
                             FOUNDER_USER_ID,
                             MiogramBadgeType.ORIGINAL,
                             null,
-                            "Засновник & Архітектор Miogram ໒꒱",
-                            "Особиста відзнака засновника та головного архітектора екосистеми Miogram (@fuckramochka).",
+                            "Засновник & Архітектор Miyumi ໒꒱",
+                            "Особиста відзнака засновника та головного архітектора спільноти Miyumi (@fuckramochka).",
                             "01.09.2026",
                             true
                     ));
@@ -412,8 +430,8 @@ public class BadgesModule implements HotModule, HotBadges {
                         FOUNDER_USER_ID,
                         MiogramBadgeType.ORIGINAL,
                         null,
-                        "Засновник & Архітектор Miogram ໒꒱",
-                        "Особиста відзнака засновника та головного архітектора екосистеми Miogram (@fuckramochka).",
+                        "Засновник & Архітектор Miyumi ໒꒱",
+                        "Особиста відзнака засновника та головного архітектора спільноти Miyumi (@fuckramochka).",
                         "01.09.2026",
                         true
                 ));
