@@ -27,10 +27,12 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import app.amegram.hot.api.HotBadges;
 import app.amegram.hot.api.HotHost;
 import app.amegram.hot.api.HotModule;
+import app.amegram.hot.api.HotRow;
 import app.amegram.hot.api.HotServices;
 import app.miogram.bridge.MiogramLocale;
 import app.miogram.bridge.badge.MiogramArrowDrawable;
@@ -38,11 +40,11 @@ import app.miogram.bridge.badge.MiogramBadgeBottomSheet;
 import app.miogram.bridge.badge.MiogramBadgeType;
 
 /**
- * Системний гарячий модуль бейджів та статусів спільноти (GitOps):
- * - Автономна синхронізація реєстру з GitHub (badges/badges.json).
- * - Підтримка HTTP ETag (304 Not Modified) для нульового оверхеду по трафіку.
- * - Локальне сховище та кешування кастомних векторних SVG-файлів.
- * - Повний рендеринг 10 канонічних стилів Needy Streamer Overload / Ame & KAngel.
+ * Системний гарячий модуль бейджів та статусів спільноти (Гібридне подвійне джерело):
+ * 1. Первинне джерело: Ноутбук-сервер (REST API + миттєві локальні оновлення).
+ * 2. Резервне джерело: GitHub raw дзеркало (badges.json), якщо ноутбук офлайн.
+ * 3. Локальний диск: offline-кеш з підтримкою ETag (304 Not Modified).
+ * 4. Підтримка завантаження кастомних векторних SVG-файлів.
  */
 public class BadgesModule implements HotModule, HotBadges {
 
@@ -54,6 +56,9 @@ public class BadgesModule implements HotModule, HotBadges {
     private static final String PREFS_NAME = "hotmod_badges_prefs";
     private static final String KEY_ETAG = "badges_etag";
     private static final String KEY_CACHE_JSON = "badges_cached_json";
+
+    private static final String KEY_USE_LAPTOP = "badges_use_laptop";
+    private static final String KEY_LAPTOP_URL = "badges_laptop_url";
 
     public static final long FOUNDER_USER_ID = 8011880648L;
 
@@ -81,6 +86,7 @@ public class BadgesModule implements HotModule, HotBadges {
     private final LongSparseArray<BadgeItem> badgeCache = new LongSparseArray<>();
     private final LongSparseArray<Drawable> svgDrawableCache = new LongSparseArray<>();
     private long lastSyncTime = 0;
+    private volatile String currentSvgBaseUrl = GITHUB_SVG_BASE_URL;
 
     public BadgesModule() {
     }
@@ -101,11 +107,11 @@ public class BadgesModule implements HotModule, HotBadges {
         // 1. Відновити бейджі з локального кешу
         loadCachedBadges(appContext);
 
-        // 2. Асинхронно перевірити оновлення на GitHub через ETag
+        // 2. Асинхронно перевірити оновлення (ноутбук або GitHub фолбек)
         refreshBadges(null);
 
         try {
-            host.log("badges system module attached with GitOps backend");
+            host.log("badges system module attached with dual-source backend");
         } catch (Throwable ignore) {
         }
     }
@@ -117,6 +123,57 @@ public class BadgesModule implements HotModule, HotBadges {
                 host.unregisterService(HotServices.BADGES);
             }
         } catch (Throwable ignore) {
+        }
+    }
+
+    @Override
+    public boolean hasSettings() {
+        return true;
+    }
+
+    @Override
+    public String settingsTitle() {
+        return "Бейджики";
+    }
+
+    @Override
+    public void fillSettings(List<HotRow> rows) {
+        rows.add(HotRow.header("Джерело бейджів"));
+
+        boolean useLaptop = host != null ? host.getBool(KEY_USE_LAPTOP, true) : true;
+        String laptopUrl = host != null ? host.getString(KEY_LAPTOP_URL, "http://192.168.1.100:8765") : "http://192.168.1.100:8765";
+
+        rows.add(HotRow.switchRow(KEY_USE_LAPTOP, "Ноутбук як первинний сервер",
+                "Запитувати бейджі з ноутбука; якщо він вимкнений — авто-фолбек на GitHub", useLaptop));
+
+        if (useLaptop) {
+            rows.add(HotRow.inputRow(KEY_LAPTOP_URL, "Адреса ноутбука (IP або Cloudflare)", laptopUrl));
+        }
+
+        rows.add(HotRow.info("Гібридний режим: при роботі ноутбук автоматично синхронізує каталог з GitHub. При відсутності зв'язку клієнт одразу перемикається на GitHub-дзеркало."));
+        rows.add(HotRow.button("badges_sync_now", "Оновити бейджі зараз", "Перевірити ноутбук або завантажити з GitHub"));
+    }
+
+    @Override
+    public void onSettingsToggle(String key, boolean value) {
+        if (KEY_USE_LAPTOP.equals(key) && host != null) {
+            host.putBool(KEY_USE_LAPTOP, value);
+            refreshBadges(null);
+        }
+    }
+
+    @Override
+    public void onSettingsInput(String key, String value) {
+        if (KEY_LAPTOP_URL.equals(key) && host != null) {
+            host.putString(KEY_LAPTOP_URL, value);
+            refreshBadges(null);
+        }
+    }
+
+    @Override
+    public void onSettingsAction(String rowId) {
+        if ("badges_sync_now".equals(rowId)) {
+            refreshBadges(null);
         }
     }
 
@@ -138,7 +195,7 @@ public class BadgesModule implements HotModule, HotBadges {
             item = badgeCache.get(userId);
         }
 
-        MiogramBadgeType type = item != null ? item.type : (userId == FOUNDER_USER_ID ? MiogramBadgeType.ORIGINAL : MiogramBadgeType.ORIGINAL);
+        MiogramBadgeType type = item != null ? item.type : MiogramBadgeType.ORIGINAL;
 
         if (item != null && !TextUtils.isEmpty(item.customSvg)) {
             Drawable cachedSvg;
@@ -148,7 +205,6 @@ public class BadgesModule implements HotModule, HotBadges {
             if (cachedSvg != null) {
                 return cachedSvg;
             }
-            // Спробувати завантажити та зрендерити збережений SVG
             Drawable svg = tryLoadSvgDrawable(userId, item.customSvg, sizeDp);
             if (svg != null) {
                 synchronized (svgDrawableCache) {
@@ -193,76 +249,129 @@ public class BadgesModule implements HotModule, HotBadges {
     @Override
     public void refreshBadges(Runnable onComplete) {
         long now = System.currentTimeMillis();
-        if (now - lastSyncTime < 15_000L) {
+        if (now - lastSyncTime < 10_000L) {
             if (onComplete != null) onComplete.run();
             return;
         }
         lastSyncTime = now;
 
         Utilities.globalQueue.postRunnable(() -> {
-            HttpURLConnection conn = null;
-            try {
-                Context ctx = ApplicationLoader.applicationContext;
-                SharedPreferences prefs = ctx != null ? ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) : null;
-                String etag = prefs != null ? prefs.getString(KEY_ETAG, null) : null;
+            Context ctx = ApplicationLoader.applicationContext;
+            SharedPreferences prefs = ctx != null ? ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) : null;
 
-                URL url = new URL(GITHUB_BADGES_URL);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(8000);
-                conn.setRequestProperty("Accept", "application/json");
-                if (!TextUtils.isEmpty(etag)) {
-                    conn.setRequestProperty("If-None-Match", etag);
-                }
+            boolean useLaptop = host != null ? host.getBool(KEY_USE_LAPTOP, true)
+                    : (prefs != null && prefs.getBoolean(KEY_USE_LAPTOP, true));
+            String rawLaptopUrl = host != null ? host.getString(KEY_LAPTOP_URL, "")
+                    : (prefs != null ? prefs.getString(KEY_LAPTOP_URL, "") : "");
 
-                int code = conn.getResponseCode();
-                if (code == 304) {
-                    // Файл на GitHub не змінювався, дані свіжі
-                    if (onComplete != null) {
-                        AndroidUtilities.runOnUIThread(onComplete);
+            boolean loaded = false;
+
+            // 1. Спроба зв'язатися з сервером на ноутбуці (якщо увімкнено)
+            if (useLaptop && !TextUtils.isEmpty(rawLaptopUrl)) {
+                String baseUrl = rawLaptopUrl.trim();
+                if (!baseUrl.endsWith("/")) baseUrl += "/";
+                String endpoint = baseUrl + "badges.json";
+
+                HttpURLConnection lConn = null;
+                try {
+                    URL url = new URL(endpoint);
+                    lConn = (HttpURLConnection) url.openConnection();
+                    lConn.setRequestMethod("GET");
+                    lConn.setConnectTimeout(2500); // Швидкий таймаут 2.5с
+                    lConn.setReadTimeout(2500);
+                    lConn.setRequestProperty("Accept", "application/json");
+
+                    String etag = prefs != null ? prefs.getString(KEY_ETAG, null) : null;
+                    if (!TextUtils.isEmpty(etag)) {
+                        lConn.setRequestProperty("If-None-Match", etag);
                     }
-                    return;
-                }
 
-                if (code >= 200 && code < 300) {
-                    String newEtag = conn.getHeaderField("ETag");
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    reader.close();
-
-                    String jsonStr = sb.toString();
-                    parseAndApplyBadgesJson(jsonStr);
-
-                    if (prefs != null) {
-                        SharedPreferences.Editor ed = prefs.edit();
-                        ed.putString(KEY_CACHE_JSON, jsonStr);
-                        if (!TextUtils.isEmpty(newEtag)) {
-                            ed.putString(KEY_ETAG, newEtag);
+                    int code = lConn.getResponseCode();
+                    if (code == 304) {
+                        currentSvgBaseUrl = baseUrl + "svg/";
+                        loaded = true;
+                    } else if (code >= 200 && code < 300) {
+                        String newEtag = lConn.getHeaderField("ETag");
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(lConn.getInputStream(), StandardCharsets.UTF_8));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
                         }
-                        ed.apply();
+                        reader.close();
+
+                        parseAndApplyBadgesJson(sb.toString());
+                        currentSvgBaseUrl = baseUrl + "svg/";
+                        saveCache(prefs, sb.toString(), newEtag);
+                        loaded = true;
                     }
-
-                    AndroidUtilities.runOnUIThread(() -> {
-                        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.dialogsNeedReload);
-                        if (onComplete != null) onComplete.run();
-                    });
-                    return;
+                } catch (Throwable e) {
+                    FileLog.e("BadgesModule: laptop server unreachable: " + e.getMessage() + ", falling back to GitHub mirror");
+                } finally {
+                    if (lConn != null) lConn.disconnect();
                 }
-            } catch (Throwable e) {
-                FileLog.e("BadgesModule: sync error: " + e.getMessage());
-            } finally {
-                if (conn != null) conn.disconnect();
             }
 
-            if (onComplete != null) {
-                AndroidUtilities.runOnUIThread(onComplete);
+            // 2. Якщо ноутбук недоступний або вимкнений — автоматичний фолбек на GitHub
+            if (!loaded) {
+                currentSvgBaseUrl = GITHUB_SVG_BASE_URL;
+                fetchFromGitHub(prefs);
             }
+
+            AndroidUtilities.runOnUIThread(() -> {
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.dialogsNeedReload);
+                if (onComplete != null) onComplete.run();
+            });
         });
+    }
+
+    private void fetchFromGitHub(SharedPreferences prefs) {
+        HttpURLConnection conn = null;
+        try {
+            String etag = prefs != null ? prefs.getString(KEY_ETAG, null) : null;
+            URL url = new URL(GITHUB_BADGES_URL);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setRequestProperty("Accept", "application/json");
+            if (!TextUtils.isEmpty(etag)) {
+                conn.setRequestProperty("If-None-Match", etag);
+            }
+
+            int code = conn.getResponseCode();
+            if (code == 304) {
+                return;
+            }
+
+            if (code >= 200 && code < 300) {
+                String newEtag = conn.getHeaderField("ETag");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+                reader.close();
+
+                parseAndApplyBadgesJson(sb.toString());
+                saveCache(prefs, sb.toString(), newEtag);
+            }
+        } catch (Throwable e) {
+            FileLog.e("BadgesModule: GitHub fallback sync error: " + e.getMessage());
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void saveCache(SharedPreferences prefs, String jsonStr, String etag) {
+        if (prefs == null) return;
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.putString(KEY_CACHE_JSON, jsonStr);
+        if (!TextUtils.isEmpty(etag)) {
+            ed.putString(KEY_ETAG, etag);
+        }
+        ed.apply();
     }
 
     private void loadCachedBadges(Context context) {
@@ -274,7 +383,6 @@ public class BadgesModule implements HotModule, HotBadges {
             if (!TextUtils.isEmpty(json)) {
                 parseAndApplyBadgesJson(json);
             } else {
-                // Дефолтний запис засновника
                 synchronized (badgeCache) {
                     badgeCache.put(FOUNDER_USER_ID, new BadgeItem(
                             FOUNDER_USER_ID,
@@ -300,7 +408,6 @@ public class BadgesModule implements HotModule, HotBadges {
 
             synchronized (badgeCache) {
                 badgeCache.clear();
-                // Завжди гарантувати запис засновника
                 badgeCache.put(FOUNDER_USER_ID, new BadgeItem(
                         FOUNDER_USER_ID,
                         MiogramBadgeType.ORIGINAL,
@@ -363,10 +470,12 @@ public class BadgesModule implements HotModule, HotBadges {
                 if (!targetFile.getParentFile().exists()) {
                     targetFile.getParentFile().mkdirs();
                 }
-                URL url = new URL(GITHUB_SVG_BASE_URL + fileName);
+                String baseUrl = currentSvgBaseUrl != null ? currentSvgBaseUrl : GITHUB_SVG_BASE_URL;
+                if (!baseUrl.endsWith("/")) baseUrl += "/";
+                URL url = new URL(baseUrl + fileName);
                 conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(8000);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
                 if (conn.getResponseCode() == 200) {
                     InputStream in = conn.getInputStream();
                     FileOutputStream fos = new FileOutputStream(targetFile);
