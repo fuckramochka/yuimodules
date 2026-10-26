@@ -14,8 +14,10 @@ import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.SvgHelper;
+import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.BaseFragment;
 
@@ -267,7 +269,7 @@ public class BadgesModule implements HotModule, HotBadges {
     @Override
     public void refreshBadges(Runnable onComplete) {
         long now = System.currentTimeMillis();
-        if (now - lastSyncTime < 10_000L) {
+        if (now - lastSyncTime < 1_500L) {
             if (onComplete != null) onComplete.run();
             return;
         }
@@ -277,10 +279,23 @@ public class BadgesModule implements HotModule, HotBadges {
             Context ctx = ApplicationLoader.applicationContext;
             SharedPreferences prefs = ctx != null ? ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) : null;
 
-            boolean useLaptop = host != null ? host.getBool(KEY_USE_LAPTOP, true)
-                    : (prefs != null && prefs.getBoolean(KEY_USE_LAPTOP, true));
-            String rawLaptopUrl = host != null ? host.getString(KEY_LAPTOP_URL, "")
-                    : (prefs != null ? prefs.getString(KEY_LAPTOP_URL, "") : "");
+            boolean useLaptop = true;
+            if (host != null) {
+                useLaptop = host.getBool(KEY_USE_LAPTOP, true);
+            } else if (prefs != null) {
+                useLaptop = prefs.getBoolean(KEY_USE_LAPTOP, true);
+            }
+
+            String rawLaptopUrl = null;
+            if (host != null) {
+                rawLaptopUrl = host.getString(KEY_LAPTOP_URL, null);
+            }
+            if (TextUtils.isEmpty(rawLaptopUrl) && prefs != null) {
+                rawLaptopUrl = prefs.getString(KEY_LAPTOP_URL, null);
+            }
+            if (TextUtils.isEmpty(rawLaptopUrl)) {
+                rawLaptopUrl = "http://192.168.1.100:8765";
+            }
 
             boolean loaded = false;
 
@@ -337,6 +352,10 @@ public class BadgesModule implements HotModule, HotBadges {
             }
 
             AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    int account = UserConfig.selectedAccount;
+                    NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_ALL);
+                } catch (Throwable ignored) {}
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.dialogsNeedReload);
                 if (onComplete != null) onComplete.run();
             });

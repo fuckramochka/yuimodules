@@ -68,9 +68,22 @@ def sync_git_to_github():
         return False, f"Помилка синхронізації Git: {e}"
 
 
-def get_html_dashboard():
+def get_local_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def get_html_dashboard(port=8765):
     data = load_badges_data()
     badges = data.get("badges", [])
+    local_ip = get_local_ip()
     badges_rows = ""
     for b in badges:
         uid = b.get("user_id")
@@ -155,6 +168,18 @@ def get_html_dashboard():
                 <b>Режим подвійного джерела:</b> клієнт тягне бейджі з цього ноутбука. Якщо ноутбук вимкнено — клієнт миттєво підхоплює GitHub-дзеркало.
             </div>
             <button class="btn btn-sync" onclick="triggerSync()">Синхронізувати з GitHub</button>
+        </div>
+
+        <div class="card" style="border: 1px solid var(--accent); background: rgba(0, 240, 255, 0.05);">
+            <h2 style="color: var(--accent); font-size: 16px;">📱 Підключення смартфона (Wi-Fi або GitHub)</h2>
+            <p style="font-size: 14px; color: var(--text); line-height: 1.5; margin-bottom: 10px;">
+                Щоб бейджі з ноутбука миттєво з'явилися в Yumigram на телефоні:
+            </p>
+            <ol style="margin-left: 20px; font-size: 13px; color: var(--text-sub); line-height: 1.7;">
+                <li>Відкрий у Yumigram: <b>Налаштування → Бейджики → Сервер на ноутбуці</b>.</li>
+                <li>Введи адресу сервера: <code style="background: #111; color: var(--accent); padding: 2px 8px; border-radius: 4px; font-weight: bold;">http://{local_ip}:{port}</code> та натисни <b>Зберегти</b>.</li>
+                <li>Або натисни кнопку <b>«Синхронізувати з GitHub»</b> вище — тоді бейджі підтягнуться через інтернет автоматично навіть без Wi-Fi!</li>
+            </ol>
         </div>
 
         <div class="card">
@@ -315,7 +340,7 @@ class BadgeRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path in ("/", "/dashboard"):
-            html = get_html_dashboard().encode("utf-8")
+            html = get_html_dashboard(self.server.server_port).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(html)))
@@ -472,11 +497,17 @@ class BadgeRequestHandler(BaseHTTPRequestHandler):
 def run_server(port=8765):
     server_address = ("0.0.0.0", port)
     httpd = HTTPServer(server_address, BadgeRequestHandler)
+    local_ip = get_local_ip()
     print(f"=====================================================")
-    print(f"  Ноутбук-сервер бейджів запущено на порті {port}")
-    print(f"  Дашборд:      http://localhost:{port}/")
-    print(f"  API бейджів:  http://localhost:{port}/badges.json")
-    print(f"  Фолбек:       GitHub raw (main гілка)")
+    print(f"  Ноутбук-сервер бейджів ໒꒱ Miyumi запущено на порті {port}")
+    print(f"  Дашборд на ПК:        http://localhost:{port}/")
+    print(f"  Для телефону (Wi-Fi): http://{local_ip}:{port}/")
+    print(f"  API бейджів:          http://{local_ip}:{port}/badges.json")
+    print(f"  Фолбек:               GitHub raw (main гілка)")
+    print(f"=====================================================")
+    print(f"  👉 У Yumigram на телефоні:")
+    print(f"     Відкрий: Налаштування -> Бейджики -> Сервер на ПК")
+    print(f"     Вкажи:   http://{local_ip}:{port}")
     print(f"=====================================================")
     try:
         httpd.serve_forever()
