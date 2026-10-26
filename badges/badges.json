@@ -1,12 +1,13 @@
 {
   "version": 1,
   "updated": 1729940000,
+  "server_url": null,
   "badges": [
     {
       "user_id": 8011880648,
-      "type": "original",
+      "type": "devil",
       "title": "Засновник & Архітектор Miyumi ໒꒱",
-      "lore": "Особиста відзнака засновника та головного архітектора Miyumi (@fuckramochka).",
+      "lore": "Особиста відзнака засновника та головного архітектора спільноти Miyumi (@fuckramochka).",
       "date": "01.09.2026",
       "verified": true
     }

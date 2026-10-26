@@ -293,6 +293,9 @@ public class BadgesModule implements HotModule, HotBadges {
             if (TextUtils.isEmpty(rawLaptopUrl) && prefs != null) {
                 rawLaptopUrl = prefs.getString(KEY_LAPTOP_URL, null);
             }
+            if (TextUtils.isEmpty(rawLaptopUrl) && prefs != null) {
+                rawLaptopUrl = prefs.getString("badges_discovered_server_url", null);
+            }
             if (TextUtils.isEmpty(rawLaptopUrl)) {
                 rawLaptopUrl = "http://192.168.1.100:8765";
             }
@@ -440,6 +443,16 @@ public class BadgesModule implements HotModule, HotBadges {
     private void parseAndApplyBadgesJson(String jsonStr) {
         try {
             JSONObject root = new JSONObject(jsonStr);
+            String discoveredUrl = root.optString("server_url", null);
+            if (!TextUtils.isEmpty(discoveredUrl)) {
+                try {
+                    Context ctx = ApplicationLoader.applicationContext;
+                    if (ctx != null) {
+                        ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                .edit().putString("badges_discovered_server_url", discoveredUrl).apply();
+                    }
+                } catch (Throwable ignored) {}
+            }
             JSONArray arr = root.optJSONArray("badges");
             if (arr == null) return;
 

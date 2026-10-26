@@ -1,6 +1,6 @@
 {
   "id": "badges",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "branch": "stable",
   "type": "system",
   "system": true,
@@ -8,7 +8,7 @@
   "name": "Бейджики спільноти",
   "minApp": 7112,
   "description": "Системний модуль відзнак та статусів користувачів. Гібридне подвійне джерело (ноутбук-сервер з авто-фолбеком на GitHub), неоновий піксель-арт рендеринг та підтримка SVG.",
-  "changelog": "Версія 1.0.3: синхронізація в реальному часі з сервером на ноутбуці, розсилка updateInterfaces для миттєвого оновлення профілю.",
+  "changelog": "Версія 1.0.4: підтримка Cloudflare Tunnel для віддаленого підключення без білого IP, DEVIL за замовчуванням у badges.json.",
   "author": "Yumi Core Team",
   "category": "power",
   "featured": true,

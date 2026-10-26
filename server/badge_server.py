@@ -494,30 +494,123 @@ class BadgeRequestHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
 
-def run_server(port=8765):
+def find_or_download_cloudflared():
+    import shutil
+    path = shutil.which("cloudflared")
+    if path:
+        return path
+    
+    exe_name = "cloudflared.exe" if sys.platform == "win32" else "cloudflared"
+    local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), exe_name)
+    if os.path.exists(local_path) and (sys.platform == "win32" or os.access(local_path, os.X_OK)):
+        return local_path
+    
+    import platform
+    import urllib.request
+    
+    arch = platform.machine().lower()
+    system = sys.platform
+    url = None
+    if system == "win32":
+        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+    elif system == "darwin":
+        if "arm" in arch or "aarch" in arch:
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64"
+        else:
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64"
+    elif system.startswith("linux"):
+        if "arm" in arch or "aarch64" in arch:
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"
+        else:
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            
+    if url:
+        print(f"📥 Завантажую Cloudflare Tunnel (cloudflared)...")
+        try:
+            urllib.request.urlretrieve(url, local_path)
+            if system != "win32":
+                os.chmod(local_path, 0o755)
+            print(f"✓ cloudflared успішно завантажено!")
+            return local_path
+        except Exception as e:
+            print(f"Не вдалося завантажити cloudflared: {e}")
+    return None
+
+
+def start_cloudflare_tunnel(port):
+    cf_bin = find_or_download_cloudflared()
+    if not cf_bin:
+        return None, None
+    
+    import re
+    cmd = [cf_bin, "tunnel", "--url", f"http://localhost:{port}"]
+    print("🚀 Запускаю Cloudflare Quick Tunnel...")
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    
+    tunnel_url = None
+    url_pattern = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
+    
+    start_time = time.time()
+    for line in iter(proc.stdout.readline, ''):
+        match = url_pattern.search(line)
+        if match:
+            tunnel_url = match.group(0)
+            break
+        if time.time() - start_time > 20:
+            break
+            
+    if tunnel_url:
+        print(f"🌍 Публічний Cloudflare URL отримано: {tunnel_url}")
+        try:
+            data = load_badges_data()
+            data["server_url"] = tunnel_url
+            save_badges_data(data)
+            sync_git_to_github()
+        except Exception as e:
+            print(f"Попередження при збереженні tunnel_url: {e}")
+            
+    return tunnel_url, proc
+
+
+def run_server(port=8765, use_tunnel=False):
     server_address = ("0.0.0.0", port)
     httpd = HTTPServer(server_address, BadgeRequestHandler)
     local_ip = get_local_ip()
+    
+    tunnel_url = None
+    tunnel_proc = None
+    if use_tunnel:
+        tunnel_url, tunnel_proc = start_cloudflare_tunnel(port)
+        
     print(f"=====================================================")
     print(f"  Ноутбук-сервер бейджів ໒꒱ Miyumi запущено на порті {port}")
     print(f"  Дашборд на ПК:        http://localhost:{port}/")
     print(f"  Для телефону (Wi-Fi): http://{local_ip}:{port}/")
+    if tunnel_url:
+        print(f"  🌍 Cloudflare (Світ):  {tunnel_url}")
     print(f"  API бейджів:          http://{local_ip}:{port}/badges.json")
     print(f"  Фолбек:               GitHub raw (main гілка)")
     print(f"=====================================================")
-    print(f"  👉 У Yumigram на телефоні:")
-    print(f"     Відкрий: Налаштування -> Бейджики -> Сервер на ПК")
-    print(f"     Вкажи:   http://{local_ip}:{port}")
+    if tunnel_url:
+        print(f"  👉 Cloudflare URL автоматично збережено в badges.json і запушено на GitHub!")
+        print(f"     Телефон підхопить його автоматично з будь-якої точки світу.")
+    else:
+        print(f"  👉 У Yumigram на телефоні:")
+        print(f"     Відкрий: Налаштування -> Бейджики -> Сервер на ПК")
+        print(f"     Вкажи:   http://{local_ip}:{port}")
     print(f"=====================================================")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nЗупинка сервера...")
+        if tunnel_proc:
+            tunnel_proc.terminate()
         httpd.server_close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AmeGram Badge Laptop Server")
+    parser = argparse.ArgumentParser(description="Miyumi Badge Laptop Server")
     parser.add_argument("--port", type=int, default=8765, help="Port to listen on (default: 8765)")
+    parser.add_argument("--tunnel", action="store_true", help="Launch free Cloudflare Tunnel for remote access")
     args = parser.parse_args()
-    run_server(args.port)
+    run_server(args.port, use_tunnel=args.tunnel)

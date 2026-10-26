@@ -1,3 +1,7 @@
 out-hmod/
 amenew/
 *.tmp
+__pycache__/
+*.pyc
+server/cloudflared*
+
