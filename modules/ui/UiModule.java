@@ -251,7 +251,12 @@ public class UiModule implements HotModule, HotUi {
     }
 
     public int chatListStyle() {
-        return readInt(KEY_CHAT_STYLE, CHAT_STYLE_FLAT);
+        int val = readInt(KEY_CHAT_STYLE, CHAT_STYLE_FLAT);
+        if (val == CHAT_STYLE_CARDS) {
+            writeInt(KEY_CHAT_STYLE, CHAT_STYLE_FLAT);
+            return CHAT_STYLE_FLAT;
+        }
+        return val;
     }
 
     public boolean isChatPinnedAccent() {
@@ -857,10 +862,20 @@ public class UiModule implements HotModule, HotUi {
                 readBool("theme_tonal_adaptation", true)));
 
         rows.add(HotRow.header("Список чатів"));
-        rows.add(HotRow.switchRow("chat_card_style",
-                "Картковий стиль чатів",
-                "Візуально виділяти діалоги в м'які плитки (вимкнено — чистий плаский MD3)",
-                chatListStyle() == CHAT_STYLE_CARDS));
+        rows.add(HotRow.choice("chat_card_style_choice",
+                "Стиль списку чатів",
+                "Оберіть форму діалогів",
+                new String[]{"Плаский чистий MD3 (Стандарт)", "Сегментовані острівці", "Виразні картки"},
+                chatListStyle() == CHAT_STYLE_FLAT ? 0 : (chatListStyle() == CHAT_STYLE_ISLANDS ? 1 : 2)));
+        rows.add(HotRow.switchRow(KEY_CHAT_CARD_OUTLINE,
+                "Контур карток чатів",
+                "Тонкий мікро-контур Material Elevation",
+                isChatCardOutline()));
+        rows.add(HotRow.slider("avatar_corners_slider",
+                "Закруглення аватарок",
+                0, 28,
+                readInt("OEAppearanceAvatarCorners", 28),
+                "dp"));
         rows.add(HotRow.switchRow(KEY_CHAT_PINNED_ACCENT,
                 "Підсвічування закріплених чатів",
                 "Тональний колірний акорд для важливих діалогів",
@@ -926,6 +941,31 @@ public class UiModule implements HotModule, HotUi {
         if (key != null && (key.startsWith("chat_") || key.startsWith("theme_") || key.startsWith("OEAppearanceChat"))) {
             if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
         }
+    }
+
+    @Override
+    public void onSettingsChoice(String key, int index) {
+        if ("chat_card_style_choice".equals(key)) {
+            int style = (index == 0) ? CHAT_STYLE_FLAT : (index == 1 ? CHAT_STYLE_ISLANDS : CHAT_STYLE_CARDS);
+            writeInt(KEY_CHAT_STYLE, style);
+            markTouched();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+            return;
+        }
+        writeInt(key, index);
+        markTouched();
+    }
+
+    @Override
+    public void onSettingsSlider(String key, int value) {
+        if ("avatar_corners_slider".equals(key)) {
+            writeInt("OEAppearanceAvatarCorners", value);
+            markTouched();
+            if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
+            return;
+        }
+        writeInt(key, value);
+        markTouched();
     }
 
     @Override

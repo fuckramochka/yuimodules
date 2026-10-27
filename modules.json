@@ -303,18 +303,30 @@
       "entry": "com.amegram.mods.ui.UiModule",
       "branches": {
         "stable": {
+          "version": "1.0.10",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.10.hmod",
+          "sha256": "47af5b51a7647775295d5fb6bb6f707e9aef731ac55f58fbb6dc67a18477cb30",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.10: оновлено стилі списку чатів (чистий плаский MD3 за замовчуванням, сегментовані острівці та картки), тонке налаштування закруглення аватарок.",
+          "permissions": [
+            "hook_ui"
+          ],
+          "sizeBytes": 33891
+        }
+      },
+      "history": [
+        {
+          "branch": "stable",
           "version": "1.0.9",
           "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/ui-1.0.9.hmod",
           "sha256": "e7f940a232c9d7fe3c24aff71dae753c78cf23e784c34ac7fda3bcb9e7dcfe63",
+          "sizeBytes": 31558,
           "minApp": 7112,
           "changelog": "Версія 1.0.9: усунено лаги нижньої панелі та списків — прибрано хуки onLayout, кешовано стан вкладок, нульовий оверхед на 120fps.",
           "permissions": [
             "hook_ui"
-          ],
-          "sizeBytes": 31558
-        }
-      },
-      "history": [
+          ]
+        },
         {
           "branch": "stable",
           "version": "1.0.8",
@@ -570,6 +582,33 @@
         }
       ],
       "author": "Yumi Core Team",
+      "category": "power",
+      "featured": true
+    },
+    {
+      "id": "kpm",
+      "name": "Kangel Plugins Manager",
+      "description": "Офіційний менеджер плагінів Kangel Plugins Store: каталог, 1-тап встановлення з 4 дзеркал (Kangel, GitHub, Codeberg, GitVerse), перевірка оновлень та обробка посилань tg://kpm.",
+      "entry": "com.amegram.mods.kpm.KpmModule",
+      "type": "system",
+      "system": true,
+      "branches": {
+        "stable": {
+          "version": "1.0.0",
+          "url": "https://raw.githubusercontent.com/fuckramochka/yuimodules/main/hmods/kpm-1.0.0.hmod",
+          "sha256": "8ef857ba685b0dff493ba0c2cb5ddfac141938b7876b24d0cdd5aa5065f6eb08",
+          "minApp": 7112,
+          "changelog": "Версія 1.0.0: нативна інтеграція KPM як хот-модуля Yumigram у стилі Material Design 3.",
+          "permissions": [
+            "network",
+            "storage",
+            "hook_ui"
+          ],
+          "sizeBytes": 15234
+        }
+      },
+      "history": [],
+      "author": "Kangel & Yumigram Team",
       "category": "power",
       "featured": true
     }
