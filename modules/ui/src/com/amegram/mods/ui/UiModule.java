@@ -29,10 +29,8 @@ import app.amegram.hot.api.HotServices;
 import app.amegram.hot.api.HotUi;
 
 /**
- * Модуль інтерфейсу Yumi v1.0.5:
- * Yougram Expressive ↔ Classic на льоту, преміальна пружинна тактильність (Material 3 Expressive),
- * плавний тактильний відгук на картках чатів (DialogCell 0.985x), шовкове відкриття шторок (BottomSheet)
- * та реактивні мікро-анімації кнопок (0.965x) без затримок і желе-ефекту.
+ * Yumi Expressive visual layer: independent chat cards, tonal navigation,
+ * custom list-screen chrome and restrained spring feedback.
  */
 public class UiModule implements HotModule, HotUi {
 
@@ -235,29 +233,11 @@ public class UiModule implements HotModule, HotUi {
         try {
             ClassLoader cl = host != null && host.context() != null ? host.context().getClassLoader() : getClass().getClassLoader();
             Class<?> ncClass = Class.forName("org.telegram.messenger.NotificationCenter", true, cl);
+            Method mGetGlobal = ncClass.getMethod("getGlobalInstance");
+            Object nc = mGetGlobal.invoke(null);
             int updateInterfaces = ncClass.getField("updateInterfaces").getInt(null);
             Method mPost = ncClass.getMethod("postNotificationName", int.class, Object[].class);
-
-            try {
-                Method mGetGlobal = ncClass.getMethod("getGlobalInstance");
-                Object nc = mGetGlobal.invoke(null);
-                mPost.invoke(nc, updateInterfaces, new Object[]{127});
-            } catch (Throwable ignore) {
-            }
-
-            try {
-                Method mGetInstance = ncClass.getMethod("getInstance", int.class);
-                for (int a = 0; a < 4; a++) {
-                    try {
-                        Object nc = mGetInstance.invoke(null, a);
-                        if (nc != null) {
-                            mPost.invoke(nc, updateInterfaces, new Object[]{127});
-                        }
-                    } catch (Throwable ignore) {
-                    }
-                }
-            } catch (Throwable ignore) {
-            }
+            mPost.invoke(nc, updateInterfaces, new Object[]{127});
         } catch (Throwable ignore) {
         }
     }
@@ -269,7 +249,7 @@ public class UiModule implements HotModule, HotUi {
     }
 
     public int chatListStyle() {
-        return readInt(KEY_CHAT_STYLE, CHAT_STYLE_FLAT);
+        return readInt(KEY_CHAT_STYLE, CHAT_STYLE_CARDS);
     }
 
     public boolean isChatPinnedAccent() {
@@ -548,7 +528,7 @@ public class UiModule implements HotModule, HotUi {
     /**
      * Підключення нативного StateListAnimator до кнопки з точною фізикою та вібровідгуком.
      */
-    private void applySpringStateListAnimator(final View v) {
+    void applySpringStateListAnimator(final View v) {
         if (v == null || !isStickyEnabled()) return;
         synchronized (animatedViews) {
             if (animatedViews.contains(v)) return;
@@ -791,32 +771,6 @@ public class UiModule implements HotModule, HotUi {
             });
             if (u != null) activeHooks.add(u);
 
-            final Method onLayout = tabClass.getDeclaredMethod("onLayout",
-                    boolean.class, int.class, int.class, int.class, int.class);
-            u = host.hook(onLayout, new HotHook.Callback() {
-                @Override
-                public void after(HotHook.Call call) throws Throwable {
-                    if (navController == null) return;
-                    Object target = call.getThis();
-                    if (target instanceof View) {
-                        navController.onLayout((View) target);
-                    }
-                }
-            });
-            if (u != null) activeHooks.add(u);
-
-            final Method updateColors = tabClass.getDeclaredMethod("updateColorsLottie");
-            u = host.hook(updateColors, new HotHook.Callback() {
-                @Override
-                public void after(HotHook.Call call) throws Throwable {
-                    if (!isExpressive() || navController == null) return;
-                    Object target = call.getThis();
-                    if (target instanceof View) {
-                        navController.onColors((View) target);
-                    }
-                }
-            });
-            if (u != null) activeHooks.add(u);
             host.log("ui: hooked GlassTabView visual state for module navigation");
         } catch (Throwable t) {
             host.log("ui: hook GlassTabView visual state failed: " + t.getMessage());
@@ -893,7 +847,7 @@ public class UiModule implements HotModule, HotUi {
         rows.add(HotRow.header("Стиль інтерфейсу"));
         rows.add(HotRow.switchRow("expressive",
                 "Yougram Expressive (MD3)",
-                "Плавна Material Design 3 навігація, плаваючі панелі та скруглення",
+                "Картки Yumi, власний док навігації та оновлені заголовки списків",
                 exp));
         rows.add(HotRow.switchRow("theme_tonal_adaptation",
                 "Адаптація під активну тему",
@@ -903,12 +857,12 @@ public class UiModule implements HotModule, HotUi {
         rows.add(HotRow.header("Список чатів"));
         rows.add(HotRow.choice("chat_card_style_choice",
                 "Стиль списку чатів",
-                "Оберіть форму діалогів",
-                new String[]{"Картки (Cards)", "Острівці (Islands)", "Плаский чистий MD3"},
-                chatListStyle()));
+                "Оберіть окремий вигляд рядків і відступів",
+                new String[]{"Картки Yumi", "М'які острівці", "Плаский список"},
+                chatListStyle() == CHAT_STYLE_CARDS ? 0 : (chatListStyle() == CHAT_STYLE_ISLANDS ? 1 : 2)));
         rows.add(HotRow.switchRow(KEY_CHAT_CARD_OUTLINE,
                 "Контур карток чатів",
-                "Тонкий мікро-контур Material Elevation",
+                "Легкий контур навколо кожної картки",
                 isChatCardOutline()));
         rows.add(HotRow.slider("avatar_corners_slider",
                 "Закруглення аватарок",
@@ -917,11 +871,11 @@ public class UiModule implements HotModule, HotUi {
                 "dp"));
         rows.add(HotRow.switchRow(KEY_CHAT_PINNED_ACCENT,
                 "Підсвічування закріплених чатів",
-                "Тональний колірний акорд для важливих діалогів",
+                "Виділяє закріплені розмови фірмовим кольором Yumi",
                 isChatPinnedAccent()));
         rows.add(HotRow.switchRow(KEY_CHAT_SQUIRCLE_AVATARS,
                 "Скруглені аватари (Squircle)",
-                "Форма аватарок чатів у стилі Material You",
+                "М'яка квадратна форма аватарок",
                 isChatSquircleAvatars()));
         rows.add(HotRow.switchRow(KEY_CHAT_CARDS_TOUCH,
                 "Пружинний відгук на дотик",
@@ -985,7 +939,8 @@ public class UiModule implements HotModule, HotUi {
     @Override
     public void onSettingsChoice(String key, int index) {
         if ("chat_card_style_choice".equals(key)) {
-            writeInt(KEY_CHAT_STYLE, index);
+            int style = (index == 0) ? CHAT_STYLE_CARDS : (index == 1 ? CHAT_STYLE_ISLANDS : CHAT_STYLE_FLAT);
+            writeInt(KEY_CHAT_STYLE, style);
             markTouched();
             if (chatRowRenderer != null) chatRowRenderer.invalidateAll();
             return;
@@ -1026,7 +981,7 @@ public class UiModule implements HotModule, HotUi {
         } else if ("reset_defaults".equals(rowId)) {
             writeInt(KEY_STYLE, 1);
             writeInt("style", 1);
-            writeInt(KEY_CHAT_STYLE, CHAT_STYLE_FLAT);
+            writeInt(KEY_CHAT_STYLE, CHAT_STYLE_CARDS);
             writeBool(KEY_CHAT_CARDS_TOUCH, true);
             writeBool(KEY_CHAT_PINNED_ACCENT, true);
             writeBool(KEY_CHAT_SQUIRCLE_AVATARS, false);
