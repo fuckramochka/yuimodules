@@ -42,7 +42,7 @@ public final class YumiNavController {
     private final UiModule owner;
     private final HotHost host;
     private final Map<View, TabState> tabs = new WeakHashMap<>();
-    private final YumiPalette palette = new YumiPalette(null);
+    private final YumiPalette palette;
     private WeakReference<Object> lastActivity = new WeakReference<>(null);
     private WeakReference<View> navContainer = new WeakReference<>(null);
     private WeakReference<View> searchButton = new WeakReference<>(null);
@@ -54,6 +54,7 @@ public final class YumiNavController {
     public YumiNavController(UiModule owner, HotHost host) {
         this.owner = owner;
         this.host = host;
+        this.palette = new YumiPalette(null, owner);
     }
 
     public void refreshPalette(Context context) {
@@ -149,30 +150,37 @@ public final class YumiNavController {
     }
 
     public void restore() {
-        active = false;
-        final View nav = navContainer.get();
-        if (nav != null) {
-            nav.setBackground(originalNavBackground);
-        }
-        final View search = searchButton.get();
-        if (search != null) {
-            search.setBackground(originalSearchBackground);
-        }
-        for (TabState state : tabs.values()) {
-            final View tab = state.tab;
-            if (tab instanceof ViewGroup && state.item != null) {
-                final ViewGroup group = (ViewGroup) tab;
-                group.removeView(state.item);
-                state.item = null;
-                for (View child : state.children) {
-                    if (child.getParent() != null) {
-                        ((ViewGroup) child.getParent()).removeView(child);
-                    }
-                    group.addView(child);
-                }
-                setSkipDrawSelector(tab, false);
-                group.requestLayout();
+        Runnable action = () -> {
+            active = false;
+            final View nav = navContainer.get();
+            if (nav != null) {
+                nav.setBackground(originalNavBackground);
             }
+            final View search = searchButton.get();
+            if (search != null) {
+                search.setBackground(originalSearchBackground);
+            }
+            for (TabState state : tabs.values()) {
+                final View tab = state.tab;
+                if (tab instanceof ViewGroup && state.item != null) {
+                    final ViewGroup group = (ViewGroup) tab;
+                    group.removeView(state.item);
+                    state.item = null;
+                    for (View child : state.children) {
+                        if (child.getParent() != null) {
+                            ((ViewGroup) child.getParent()).removeView(child);
+                        }
+                        group.addView(child);
+                    }
+                    setSkipDrawSelector(tab, false);
+                    group.requestLayout();
+                }
+            }
+        };
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            action.run();
+        } else {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(action);
         }
     }
 
@@ -197,7 +205,7 @@ public final class YumiNavController {
         }
 
         final String iconName = index >= 0 && index < ICONS.length ? ICONS[index] : ICONS[0];
-        state.item = new YumiNavItem(tab.getContext(), palette, iconName, index == AVATAR_INDEX);
+        state.item = new YumiNavItem(tab.getContext(), palette, iconName, index == AVATAR_INDEX, owner);
         state.item.setLabel(state.label);
         state.item.setSelectedState(state.selected);
         state.item.setCounter(state.counter, state.counterError);
@@ -321,7 +329,8 @@ public final class YumiNavController {
     private Drawable navBackground(Context context) {
         final GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(palette.navSurface);
-        drawable.setCornerRadius(dp(context, 22));
+        drawable.setCornerRadius(dp(context, owner.navRadius()));
+        drawable.setStroke(dp(context, 1), palette.navBorder);
         return drawable;
     }
 

@@ -38,7 +38,7 @@ public final class YumiChatRowRenderer {
 
     private final UiModule owner;
     private final HotHost host;
-    private final YumiPalette palette = new YumiPalette(null);
+    final YumiPalette palette;
     private final Map<View, Row> rows = new WeakHashMap<>();
     private final Paint cardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -54,6 +54,7 @@ public final class YumiChatRowRenderer {
     public YumiChatRowRenderer(UiModule owner, HotHost host) {
         this.owner = owner;
         this.host = host;
+        this.palette = new YumiPalette(null, owner);
         strokePaint.setStyle(Paint.Style.STROKE);
         badgeTextPaint.setTextAlign(Paint.Align.CENTER);
         badgeTextPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
@@ -115,9 +116,9 @@ public final class YumiChatRowRenderer {
         final boolean rtl = cell.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
         final Context context = cell.getContext();
         final boolean islands = listStyle == UiModule.CHAT_STYLE_ISLANDS;
-        final int side = islands ? dp(context, 8) : dp(context, 12);
-        final int vertical = islands ? dp(context, 3) : dp(context, 5);
-        final float radius = islands ? dp(context, 16) : dp(context, 21);
+        final int side = islands ? dp(context, 8) : dp(context, owner.cardSideMargin());
+        final int vertical = islands ? dp(context, 2.5f) : dp(context, owner.cardVerticalMargin());
+        final float radius = islands ? dp(context, 16) : dp(context, owner.cardRadius());
         final float holeX = rtl ? width - dp(context, 39) : dp(context, 39);
         final float holeY = height / 2f;
         final float holeR = dp(context, 28);
@@ -139,9 +140,11 @@ public final class YumiChatRowRenderer {
                 ? blend(palette.cardSurface, palette.primaryContainer, 0.24f)
                 : palette.cardSurface);
         canvas.drawPath(cardPath, cardPaint);
-        strokePaint.setColor(palette.cardRim);
-        strokePaint.setStrokeWidth(Math.max(1, dp(context, 0.75f)));
-        canvas.drawPath(cardPath, strokePaint);
+        if (owner.isChatCardOutline() && (palette.cardRim >>> 24) > 0) {
+            strokePaint.setColor(palette.cardRim);
+            strokePaint.setStrokeWidth(Math.max(1, dp(context, 0.75f)));
+            canvas.drawPath(cardPath, strokePaint);
+        }
 
         // A small Yumi color mark gives each card a clear leading edge while
         // leaving the official avatar, gestures and text layouts untouched.
@@ -184,6 +187,18 @@ public final class YumiChatRowRenderer {
         }
 
         if (row.timeLayout != null) {
+            if (owner.isTimePillEnabled()) {
+                final float tPadH = dp(context, 6);
+                final float tPadV = dp(context, 2);
+                final float pillL = (rtl ? timeRight : timeX) - tPadH;
+                final float pillT = timeTop - tPadV;
+                final float pillR = (rtl ? timeRight + row.timeWidth : timeRight) + tPadH;
+                final float pillB = timeTop + (row.timeLayout.getHeight() > 0 ? row.timeLayout.getHeight() : dp(context, 14)) + tPadV;
+                final float pillRadius = (pillB - pillT) / 2f;
+                badgePaint.setColor(palette.secondaryFill);
+                canvas.drawRoundRect(pillL, pillT, pillR, pillB, pillRadius, pillRadius, badgePaint);
+            }
+
             canvas.save();
             canvas.clipRect(rtl ? timeRight : timeX, timeTop,
                     rtl ? timeRight + row.timeWidth : timeRight, timeTop + dp(context, 20));
@@ -208,7 +223,7 @@ public final class YumiChatRowRenderer {
             final float bx = rtl ? dp(context, 16) : width - dp(context, 16) - badgeW;
             final float by = height - dp(context, 9) - badgeH;
 
-            // Apple dynamic capsule badge
+            // Expressive capsule badge
             badgePaint.setColor(row.muted ? palette.secondaryFill : palette.primary);
             canvas.drawRoundRect(bx, by, bx + badgeW, by + badgeH, badgeR, badgeR, badgePaint);
             if (!TextUtils.isEmpty(row.badgeText)) {
